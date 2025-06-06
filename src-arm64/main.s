@@ -42,6 +42,12 @@ error_arg: // nreturn error_arg()
 	b exit
 
 _start: // int _start(int argc, char** argv)
+	adr x1, st_asm_msg
+	mov x0, #1
+	bl strlen
+	mov x2, x9
+	bl write
+
 	// Get argc
 	ldr x10, [sp]
 	// Compare argc to 2
