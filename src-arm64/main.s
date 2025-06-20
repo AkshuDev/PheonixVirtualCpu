@@ -1,4 +1,4 @@
-// All commented code is in AOL not in C
+// All commented code is in .AOL not in .C. You can understand it either way
 
 .section .data
 st_asm_msg: .asciz "Starting Pheonix Virtual Cpu Assembler...\n"
@@ -46,7 +46,8 @@ _start: // int _start(int argc, char** argv)
 	mov x0, #1
 	bl strlen
 	mov x2, x9
-	bl write
+	mov x8, #64
+	svc #0
 
 	// Get argc
 	ldr x10, [sp]
