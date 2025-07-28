@@ -1,44 +1,60 @@
-# === HOST CPU ===
-ARCH := $(shell uname -m)
-BASE_DIR := $(CURDIR)
+# =====================================
+# AMD64 Cross-Platform NASM Makefile
+# =====================================
 
-# Normalize some common outputs
-ifeq ($(ARCH),x86_64)
-	CPU := amd64
-else ifeq ($(ARCH),aarch64)
-	CPU := arm64
-else ifeq ($(ARCH),armv71)
-	CPU := arm32
-else
-	CPU:= unknown
-endif
+# Detect OS (lowercased)
+UNAME_S := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
-# === Set vars based on CPU ===
-ifeq ($(CPU),amd64)
-	MAKEDIR := $(BASE_DIR)/amd64
-else ifeq ($(CPU),arm64)
-	MAKEDIR := $(BASE_DIR)/arm64
-else ifeq ($(CPU),arm32)
-	# Arm64 files currently are made in 32-bit (ARM32 support+)
-	MAKEDIR := $(BASE_DIR)/arm64
-else:
-	MAKEDIR := unsupported
-endif
+# Set architecture folder
+ARCH_DIR := amd64
 
-MAKE := make
+# Base OS source directory
+OS_SRC_DIR := $(ARCH_DIR)/$(UNAME_S)/src
+INCLUDE_DIR := $(OS_SRC_DIR)/inc
 
-# === TARGETS ===
-.PHONY: all clean info
+# Output directories
+BUILD_DIR := $(ARCH_DIR)/build
+BIN_DIR := $(ARCH_DIR)/bin
 
-all: info
-	@echo "Running Build For: $(ARCH)"
-	$(MAKE) -C $(MAKEDIR)
+# Binary name
+BIN_NAME := pvcpu-$(UNAME_S)
 
-info:
-	@echo "Detected Arch: $(ARCH)"
-	@echo "Normalized CPU Type: $(CPU)"
-	@echo "Build-Dir: $(MAKEDIR)"
+# Find all .asm files in OS-specific src
+ASM_FILES := $(wildcard $(OS_SRC_DIR)/*.asm)
 
+# Convert .asm to .o for build
+OBJ_FILES := $(patsubst $(OS_SRC_DIR)/%.asm,$(BUILD_DIR)/%-obj-$(UNAME_S).o,$(ASM_FILES))
+
+# Compiler and linker
+NASM := nasm
+LD := ld
+
+# Flags
+NASM_FLAGS := -f elf64 -I $(INCLUDE_DIR)/
+LD_FLAGS :=
+
+# Default target
+all: prepare $(BIN_DIR)/$(BIN_NAME)
+
+# Prepare folders
+prepare:
+	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(BIN_DIR)
+
+# Build object files
+$(BUILD_DIR)/%-obj-$(UNAME_S).o: $(OS_SRC_DIR)/%.asm
+	@echo "Assembling $< -> $@"
+	@$(NASM) $(NASM_FLAGS) $< -o $@
+
+# Link final binary
+$(BIN_DIR)/$(BIN_NAME): $(OBJ_FILES)
+	@echo "Linking $@"
+	@$(LD) $(LD_FLAGS) -o $@ $^
+
+# Clean build files
 clean:
-	@echo "Running Clean for: $(ARCH)"
-	$(MAKE) -C $(MAKEDIR) clean
+	@echo "Cleaning build and bin directories..."
+	@rm -rf $(BUILD_DIR)/*
+	@rm -rf $(BIN_DIR)/*
+
+.PHONY: all clean prepare
