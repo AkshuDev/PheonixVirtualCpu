@@ -1,11 +1,14 @@
 %include "fileio.inc"
 
+section .data
+    stat_struct: db 144
+
 section .text
-global open_file
-global close_file
-global write_file
-global read_file
-global open_input_file
+    global open_file
+    global close_file
+    global write_file
+    global read_file
+    global get_fsize
 
 open_file:
     mov rax, SYS_openat
@@ -28,52 +31,16 @@ read_file:
     syscall
     ret
 
-open_input_file:
-    ; rdi - file name, rsi - out buff addr, rdx - out fd buff, r10 - count
-    ; save
-    push rdi
-    push rsi
-    push rdx
-    push r10
+get_fsize: ; rsi -> char* filename -> rax (file size)
+    mov rax, SYS_newfstatat
+    mov rdi, AT_FDCWD
+    lea rdx, [rel stat_struct]
+    xor r10, r10
+    syscall
 
-    mov rsi, rdi ; arg 2
-    mov rdi, AT_FDCWD ; arg 1
-    mov rdx, O_RDONLY ; arg 3
-    call open_file
-
-    ; fd in rax
-    ; restore
-    pop r10
-    pop rdx
-    pop rsi
-
-    mov qword [rdx], rax ; Save fd
-
-    ; Save again
-    push rsi
-    push rdx
-    push r10
-
-    ; read now
-    mov rdi, rax
-    ; rsi already points to out buff
-    mov rdx, r10 ; count
-    call read_file
-
-    cmp rax, 1
-    jl .open_input_file__unabletoread
-    pop r10
-    pop rdx
-    pop rsi
-    pop rdi
-
-    mov rax, 0
+    cmp rax, 0
+    js .err
+    mov rax, [stat_struct + 48]
     ret
-.open_input_file__unabletoread:
-    pop r10
-    pop rdx
-    pop rsi
-    pop rdi
-
-    mov rax, 1
+.err:
     ret

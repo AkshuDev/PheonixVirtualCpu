@@ -30,8 +30,8 @@ NASM := nasm
 LD := ld
 
 # Flags
-NASM_FLAGS := -f elf64 -I $(INCLUDE_DIR)/
-LD_FLAGS :=
+NASM_FLAGS := -g -F dwarf -f elf64 -I $(INCLUDE_DIR)/
+LD_FLAGS := -g
 
 # Default target
 all: prepare $(BIN_DIR)/$(BIN_NAME)
