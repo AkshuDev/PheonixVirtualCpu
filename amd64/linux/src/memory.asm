@@ -69,5 +69,5 @@ free:
 
 get_fheap: ; rax (void*) -> rax (char*)
     mov rdi, rax
-    mov rax, [heap_space + rax]
+    lea rax, [heap_space + rax]
     ret

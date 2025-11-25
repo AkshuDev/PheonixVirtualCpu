@@ -1,0 +1,3 @@
+[submodule "tools/PAC"]
+	path = tools/PAC
+	url = https://github.com/AkshuDev/PAC
