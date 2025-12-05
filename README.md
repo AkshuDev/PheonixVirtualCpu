@@ -201,9 +201,9 @@ This makes it the backbone of binary portability inside the Pheonix ecosystem.
 ---
 
 ## License
-MIT License
-
 ```
+ MIT License
+
  Copyright (c) 2025 AkshuDev
  
  Permission is hereby granted, free of charge, to any person obtaining a copy
