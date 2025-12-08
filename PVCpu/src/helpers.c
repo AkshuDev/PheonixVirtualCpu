@@ -7,6 +7,18 @@
 #include <pvcpu-jit.h>
 #include <pvcpu-helpers.h>
 
+void emit_u8(Jit_Buf* buf, uint8_t v) {
+    if (buf->size + 1 > buf->capacity) return;
+    memcpy(buf->data + buf->size, &v, 1);
+    buf->size += 1;
+}
+
+void emit_u16(Jit_Buf* buf, uint16_t v) {
+    if (buf->size + 2 > buf->capacity) return;
+    memcpy(buf->data + buf->size, &v, 2);
+    buf->size += 2;
+}
+
 void emit_u32(Jit_Buf* buf, uint32_t v) {
     if (buf->size + 4 > buf->capacity) return;
     memcpy(buf->data + buf->size, &v, 4);

@@ -108,7 +108,8 @@ int main(int argc, char** argv) {
                 inst_extflags_count = realloc(inst_extflags_count, inst_cap * sizeof(int));
             }
             inst_extflags[idx] = calloc(2, sizeof(uint64_t));
-            if (pvcpu_unpack_inst(program, file_size, &insts[idx], &inst_values[idx], inst_extflags[idx], &inst_extflags_count[idx]) == 0) {
+            size_t read_bytes = pvcpu_unpack_inst(program + off, file_size - off, &insts[idx], &inst_values[idx], inst_extflags[idx], &inst_extflags_count[idx]);
+            if (read_bytes == 0 && file_size - off > 4) {
                 fprintf(stderr, "Error: Instruction unpacking failed!\n");
                 free(program);
                 free(insts);
@@ -119,7 +120,10 @@ int main(int argc, char** argv) {
                 free(inst_extflags);
                 free(inst_extflags_count);
                 return 5;
+            } else if (file_size - off < 4) {
+                break;
             }
+            off += read_bytes;
             inst_count += 1;
         }
 
@@ -138,6 +142,8 @@ int main(int argc, char** argv) {
                 return 6;
             }
         }
+
+        pvcpu_run(insts, inst_values, inst_extflags, inst_extflags_count, inst_count, inst_cap, 100, 128, 0);
     
         free(program);
         free(insts);
