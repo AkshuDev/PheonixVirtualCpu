@@ -10,7 +10,7 @@
 #include <pvcpu-validator.h>
 #include <pvcpu-helpers.h>
 
-const char* SEPS = ";:,-|";
+const char* SEPS = ":,";
 
 // Split arguments using ANY of the separators
 static int split_args(char* input, char* out[], int max_parts) {
@@ -57,7 +57,7 @@ static uint8_t* read_file(const char* filename, size_t* out_size) {
 int main(int argc, char** argv) {
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: pvcpu [func]<sep>[value]<sep>[args]\nExample: run;100;arg1;arg2\n\tSeperators: ';', ':', ',', '-', '|'\n");
+        fprintf(stderr, "Usage: pvcpu [func]<sep>[value]<sep>[args]\nExample: run:100:arg1,arg2\n\tSeperators: ':', ','\n");
         return 1;
     }
 
