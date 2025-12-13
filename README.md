@@ -66,10 +66,19 @@ PVCpu is designed to work alongside other Pheonix tools:
 
 * **PDumper (Pheonix Dumper)**
 
-  * Disassembler
+  * Disassembler (Uses PDASM)
   * Debugger
   * Memory inspector
   * Register viewer
+
+* **PDASM (Pheonix Disassembler)**
+
+  * Disassembler
+  * Executable Information Provider
+  * Symbol Information Provider
+  * Relocation Information Provider
+  * Works for Binary files as well
+  * Uses PAC syntax
 
 * Additional Pheonix tools (runtime, build systems, CLI utilities)
 
