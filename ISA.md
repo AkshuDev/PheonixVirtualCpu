@@ -2,68 +2,51 @@
 
 ## Overview
 
-The **PVCpu Architecture** (Pheonix Virtual CPU Architecture) defines a 32-bit fixed-width instruction set designed for simplicity, extensibility, and operating-system-level control.
+The **PVCpu Architecture** (Pheonix Virtual CPU Architecture) defines a modular instruction set with extensibility and efficient decoding as core design goals.
 
 Two architectural variants exist:
-- **PVCpu Architecture**: The standard, uncompressed instruction format described in this document.
-- **PVCpu-C Architecture**: A compressed instruction format intended for higher density and complexity. The PVCpu-C format is more complex and is described separately below.
 
-This document provides a high-level architectural description. Detailed opcode definitions, register encodings, instruction modes, and extended flag semantics are specified in **`Docs/PVCpu.md`**.
+- **PVCpu Architecture**  
+  The standard fixed-width instruction format, using a 32-bit base instruction with optional 64-bit extensions.
+
+- **PVCpu-C Architecture**  
+  A compressed instruction format optimized for reduced code size and higher instruction density.  
+  PVCpu-C modifies instruction fetching and decoding behavior while preserving the logical execution model.
+
+This document provides a high-level architectural description. Detailed opcode definitions, instruction modes, register encodings, and flag semantics are specified in **`Docs/PVCpu.md`**.
 
 ---
 
-## Instruction Size and Layout
+## PVCpu Instruction Format (Standard)
 
-All PVCpu instructions are **32 bits** wide and follow a fixed layout:
+### Instruction Size and Layout
+
+All standard PVCpu instructions are **32 bits** wide and follow a fixed layout:
 
 [ opcode: 12 bits ][ mode: 4 bits ][ src: 6 bits ][ dest: 6 bits ][ flags: 4 bits ]
 
-### Field Descriptions
+### Flags
 
-- **Opcode (12 bits)**  
-  Identifies the operation to be executed by the processor.
-
-- **Mode (4 bits)**  
-  Determines the instruction’s addressing mode, operand interpretation, and execution behavior.
-
-- **Source (6 bits)**  
-  Encodes the source register or operand identifier.
-
-- **Destination (6 bits)**  
-  Encodes the destination register or operand identifier.
-
-- **Flags (4 bits)**  
-  A static bitmask controlling instruction validity and extension behavior.
-
----
-
-## Instruction Flags
-
-The **Flags** field is a static bitmask with the following meaning:
+The flags field is a static bitmask:
 
 - **Bit 0 — Valid Instruction**  
-  Indicates whether the instruction is valid and executable. If unset, the instruction is treated as invalid.
+  Marks the instruction as valid and executable.
 
 - **Bit 1 — Immediate / Absolute Extension**  
-  Specifies that the next 64 bits in the instruction stream represent an immediate value or an absolute memory address.
+  The next 64 bits represent an immediate value or an absolute memory address.
 
 - **Bit 2 — Displacement Extension**  
-  Specifies that the next 64 bits in the instruction stream represent a signed or unsigned 64-bit displacement value.
+  The next 64 bits represent a 64-bit displacement value.
 
 - **Bit 3 — Extended Flags Present**  
-  Specifies that the next 64 bits contain an extended flags structure.
+  The next 64 bits contain extended flags.
 
----
+### Extended Flags
 
-## Extended Flags
-
-Extended flags form a static bitmask used to further refine instruction behavior.
-
-Extended flags may be **chained up to two times**, producing the following hierarchy:
+Extended flags are static bitmasks that refine instruction behavior.  
+They may be chained up to two times, forming the following hierarchy:
 
 Flags → Extended Flags → Extended-Extended Flags → Advanced Flags
-
-Each level is represented by an additional 64-bit extension in the instruction stream. The semantics and layout of each extension level are defined in **`Docs/PVCpu.md`**.
 
 ---
 
@@ -74,55 +57,108 @@ Each level is represented by an additional 64-bit extension in the instruction s
 - **Total Registers**: 40  
 - **Program-Accessible Registers**: 34  
 
-Registers are encoded using 6-bit identifiers.
-
----
-
-## Program-Accessible Registers
-
-### NULL Register
+### Program-Accessible Registers
 
 - **NULL**  
-  A constant-value register that always resolves to zero when read.  
-  Writes to this register are discarded and have no effect.  
-  It is commonly used for operand suppression, comparisons, and placeholder destinations.
+  Always resolves to zero when read. Writes are ignored.
 
-### General-Purpose Registers
-
-- **G0 – G30 (General0 – General30)**  
-  General-purpose registers used for arithmetic operations, data movement, addressing, and intermediate values.  
-  These registers have no implicit behavior and may be freely used by programs.
-
-### Special Registers
+- **G0 – G30**  
+  General-purpose registers used for computation, addressing, and data movement.
 
 - **LR (Link Register)**  
-  Holds the return address for control-transfer instructions.  
-  For correctness and safety, return addresses are also pushed onto the stack, ensuring stack-based validation of control flow.
+  Holds the return address for control-transfer operations. Return addresses are also pushed onto the stack for validation.
 
 - **SF (Stack Frame Register)**  
-  Points to the base of the current stack frame.  
-  Used to access local variables, function arguments, and saved state.
+  Points to the base of the current stack frame.
 
 - **SP (Stack Pointer)**  
-  Points to the top of the active stack.  
-  Automatically updated by stack-related instructions.
+  Points to the top of the active stack.
+
+### Internal Registers
+
+- **PC (Program Counter)**  
+  Holds the address of the current instruction.
+
+- **IP (Instruction Pointer)**  
+  Tracks decoding position within the instruction stream.
+
+- **I0 – I3**  
+  Internal registers reserved for operating system use.
 
 ---
 
-## Internal Registers
+## PVCpu-C Architecture (Compressed Format)
 
-Internal registers are reserved for processor control, execution flow, and system-level operations.
+### Overview
 
-- **PC (Program Counter)**  
-  Holds the address of the currently executing instruction.  
-  Updated automatically during instruction fetch and control flow changes.
+**PVCpu-C** is a compressed instruction encoding designed to reduce instruction size and improve code density.  
+While execution semantics remain consistent with the standard PVCpu architecture, instruction fetching and decoding differ to support variable-length instructions.
 
-- **IP (Instruction Pointer)**  
-  Tracks the current position within the instruction stream and assists with multi-word instruction decoding.
+PVCpu-C enables instructions to shrink from a minimum of **4 bytes to as little as 2 bytes**, particularly for operations that do not require operands.
 
-- **I0 – I3 (Internal0 – Internal3)**  
-  Internal-purpose registers reserved for operating system use.  
-  These registers are not accessible to user programs and are intended for low-level control, scheduling, and exception handling.
+---
+
+### Base Instruction Format
+
+PVCpu-C instructions begin with a compact header:
+
+[ opcode: 12 bits ][ extender: 4 bits ]
+
+The **extender** field is a control bitmask that determines which optional components follow in the instruction stream.
+
+---
+
+### Extender Bitmask
+
+- **Bit 0 — Valid Instruction**  
+  Marks the instruction as valid and executable.
+
+- **Bit 1 — Mode / Register Field Size Present**  
+  When set, the next 1 byte is fetched in the following format:
+
+[ RegFieldSize: 4 bits ][ mode: 4 bits ]
+
+- **RegFieldSize** selects the register encoding width and may be 1, 2, 4, or 6 bits.
+- **Mode** defines the instruction mode.  
+  When this extender bit is inactive, the mode implicitly defaults to 0.
+
+- **Bit 2 — Registers Present**  
+When set, the next `(RegFieldSize × 2)` bits encode the registers, with the source register first and the destination register second.
+
+- **Bit 3 — Flags Present**  
+When set, the next 4 bits encode the instruction flags.
+
+---
+
+### Extended Flags in PVCpu-C
+
+In PVCpu-C, extended flags differ from the standard format:
+
+- Extended flags are **32 bits wide**
+- They may be **chained up to four times**
+- This allows access to all instruction fields, advanced behaviors, and modifiers within the compressed format
+
+Immediate values and displacement values are also **32 bits** wide in PVCpu-C.
+
+---
+
+### Architectural Impact
+
+The PVCpu-C format introduces several important effects:
+
+- **Reduced Code Size**  
+Instructions without operands or extensions may occupy as little as 2 bytes, significantly improving code density.
+
+- **Flexible Operand Encoding**  
+Variable register field sizes allow balancing compactness and expressiveness on a per-instruction basis.
+
+- **Lower Memory Bandwidth Usage**  
+Smaller instruction footprints reduce instruction fetch pressure and improve cache efficiency.
+
+- **Increased Decoder Complexity**  
+Variable-length instructions and chained extensions require more sophisticated fetching and decoding logic.
+
+Despite these differences, PVCpu-C preserves the logical execution model of the standard PVCpu architecture.
 
 ---
 
@@ -135,6 +171,6 @@ The following components are defined in detail in **`Docs/PVCpu.md`**:
 - Flag, extended flag, extended-extended flag, and advanced flag layouts  
 - Register encodings  
 - Operand interpretation rules  
-- PVCpu-C compressed instruction format  
+- PVCpu-C detailed decoding rules and extension behavior  
 
-This document serves as the architectural overview and entry point for the PVCpu ISA.
+This document serves as the architectural overview and entry point for the PVCpu Instruction Set Architecture.
