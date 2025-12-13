@@ -461,46 +461,46 @@ Architecture r_get_arch(char* src, size_t size) {
         char error_info[128];
         if (!validate_pe(src, size, error_info)) {
             fprintf(stderr, "Error: %s\n", error_info);
-            return UnknownArch;
+            return Arch_Unknown;
         }
 
         const DOS_Hdr* doshdr = (const DOS_Hdr*)(src);
         const PE_Hdr* pehdr = (const PE_Hdr*)(src + doshdr->e_lfanew);
         switch (pehdr->machine) {
-            case IMAGE_FILE_MACHINE_I386: return x86;
-            case IMAGE_FILE_MACHINE_AMD64: return x64;
-            default: return UnknownArch;
+            case IMAGE_FILE_MACHINE_I386: return Arch_x86;
+            case IMAGE_FILE_MACHINE_AMD64: return Arch_x64;
+            default: return Arch_Unknown;
         }
     } else {
         // ELF
         char error_info[128];
         if (!validate_elf(src, size, error_info)) {
             fprintf(stderr, "Error: %s\n", error_info);
-            return UnknownArch;
+            return Arch_Unknown;
         }
 
         const Elf64_Ehdr* ehdr = (const Elf64_Ehdr*)(src);
         if (ehdr->e_ident[EI_CLASS] == ELFCLASS32) {
             const Elf32_Ehdr* ehdr32 = (const Elf32_Ehdr*)(src);
             switch (ehdr32->e_machine) {
-                case EM_PVCPU: return PVCpu;
-                case EM_PVCPUC: return PVCpuC;
-                case EM_X86_64: return x64;
-                case EM_386: return x86;
-                default: return UnknownArch;
+                case EM_PVCPU: return Arch_PVCpu;
+                case EM_PVCPUC: return Arch_PVCpuC;
+                case EM_X86_64: return Arch_x64;
+                case EM_386: return Arch_x86;
+                default: return Arch_Unknown;
             }
         } else {
             switch (ehdr->e_machine) {
-                case EM_PVCPU: return PVCpu;
-                case EM_PVCPUC: return PVCpuC;
-                case EM_X86_64: return x64;
-                case EM_386: return x86;
-                default: return UnknownArch;
+                case EM_PVCPU: return Arch_PVCpu;
+                case EM_PVCPUC: return Arch_PVCpuC;
+                case EM_X86_64: return Arch_x64;
+                case EM_386: return Arch_x86;
+                default: return Arch_Unknown;
             }
         }
     }
 
-    return UnknownArch;
+    return Arch_Unknown;
 }
 
 size_t r_get_codeoff(char* src, size_t size, size_t* code_size, size_t* svaddr) {

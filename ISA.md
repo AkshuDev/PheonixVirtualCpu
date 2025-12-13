@@ -82,7 +82,7 @@ Flags → Extended Flags → Extended-Extended Flags → Advanced Flags
 - **IP (Instruction Pointer)**  
   Tracks decoding position within the instruction stream.
 
-- **I0 – I3**  
+- **I0 – I2**  
   Internal registers reserved for operating system use.
 
 ---
@@ -120,7 +120,7 @@ The **extender** field is a control bitmask that determines which optional compo
 
 - **RegFieldSize** selects the register encoding width and may be 1, 2, 4, or 6 bits.
 - **Mode** defines the instruction mode.  
-  When this extender bit is inactive, the mode implicitly defaults to 0.
+  When this extender bit is inactive, the mode implicitly defaults to 1.
 
 - **Bit 2 — Registers Present**  
 When set, the next `(RegFieldSize × 2)` bits encode the registers, with the source register first and the destination register second.

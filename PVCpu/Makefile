@@ -7,8 +7,8 @@ BUILD ?= debug
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 CC := gcc
-CFLAGS_RELEASE := -Wall -Wextra -std=c17 -I inc
-CFLAGS_DEBUG := -Wall -Wextra -std=c17 -g -fsanitize=address,undefined -I inc
+CFLAGS_RELEASE := -Wall -Wextra -std=c17 -I inc -I ../shared_inc
+CFLAGS_DEBUG := -Wall -Wextra -std=c17 -g -fsanitize=address,undefined -I inc -I ../shared_inc
 LDFLAGS := 
 
 ifeq ($(BUILD),release)
@@ -25,6 +25,8 @@ endif
 
 # Source files
 SRCS := $(wildcard src/*.c)
+SHARED_SRCS := $(wildcard ../shared_src/*.c)
+SHARED_OBJS := $(patsubst ../shared_src/%.c,build/%_shared_$(OS)_$(ARCH).o,$(SHARED_SRCS))
 OBJS := $(patsubst src/%.c,build/%_$(OS)_$(ARCH).o,$(SRCS))
 
 # Output binary
@@ -42,7 +44,11 @@ build/%_$(OS)_$(ARCH).o: src/%.c
 	@mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BIN): $(OBJS)
+build/%_shared_$(OS)_$(ARCH).o: ../shared_src/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BIN): $(OBJS) $(SHARED_OBJS)
 	@mkdir -p bin/$(OS)/$(ARCH)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 	@echo "Built $(BIN) [$(BUILD)]"

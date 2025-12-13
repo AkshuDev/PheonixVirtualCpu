@@ -271,7 +271,7 @@ static bool opcode_needs_imm(uint8_t op, bool rex_w, bool op16, size_t* immsize,
     return false;
 }
 
-static bool opcode_register_extension(uint8_t opcode, bool rex_present, bool b16_prefix, bool rex_w, bool rex_b, char* out, bool is_0f_prefix, uint8_t op_0f) {
+static bool opcode_register_extension(uint8_t opcode, bool rex_present, bool b16_prefix, bool rex_w, bool rex_b, char* out, size_t outsz, bool is_0f_prefix, uint8_t op_0f) {
     uint8_t base = opcode & 0xF8;
     uint8_t r = opcode & 0x07;
     bool matched = false;
@@ -296,11 +296,11 @@ static bool opcode_register_extension(uint8_t opcode, bool rex_present, bool b16
 
     const char* regname = decode_register(rex_present, b16_prefix, rex_w, rex_b, reg);
     size_t off = strlen(out);
-    snprintf(out + off, 256 - off, CB_CYAN " %s," C_WHITE, regname);
+    snprintf(out + off, outsz - off, CB_CYAN " %s," C_WHITE, regname);
     return true;
 }
 
-void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
+void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t outsz) {
     size_t og_offset = *offset;
     x64_inst inst = {0};
 
@@ -351,10 +351,44 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
 
         if (rm == 4 && mod != 3) { // SIB present
             inst.sib = data[*offset];
-            (*offset)++;
-        }
+            uint8_t scale = (inst.sib & 0b11000000) >> 6;
+            uint8_t index = (inst.sib & 0b00111000) >> 3;
+            uint8_t base = (inst.sib & 0b00000111);
 
-        if (mod == 0 && rm != 5) { // TODO: Add SIB
+            if (inst.rex_present) {
+                index |= inst.rex_x << 3;
+                base  |= inst.rex_b << 3;
+            }
+
+            const char* base_str = decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, 0, base);
+            const char* index_str = (index == 4) ? "" : decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, 0, index); // 4 = no index
+            uint64_t disp_val = 0;
+            (*offset)++;
+
+            if (mod == 0 && base == 5) { // disp32
+                int32_t disp32;
+                memcpy(&disp32, data + *offset, sizeof(disp32));
+                disp_val = disp32;
+                *offset += 4;
+            } else if (mod == 1) { // disp8
+                int8_t disp8;
+                memcpy(&disp8, data + *offset, sizeof(disp8));
+                disp_val = disp8;
+                *offset += 1;
+            } else if (mod == 2) { // disp32
+                int32_t disp32;
+                memcpy(&disp32, data + *offset, sizeof(disp32));
+                disp_val = disp32;
+                *offset += 4;
+            }
+
+            size_t out_off = strlen(out);
+            if (index == 4)
+                snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, [" CB_WHITE "%s + 0x%lx]" C_WHITE, decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), base_str, disp_val);
+            else
+                snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, [" CB_WHITE "%s + %s*%d + 0x%lx]" C_WHITE, decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), base_str, index_str, 1 << scale, disp_val);
+        }
+        else if (mod == 0 && rm != 5) {
             // Direct memory
             uint32_t imm32;
             memcpy(&imm32, data + *offset, sizeof(imm32));
@@ -362,7 +396,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
 
             *offset += 4;
             size_t out_off = strlen(out);
-            snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx] ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.imm);
+            snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx] ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.imm);
         }
         else if (mod == 0 && rm == 5) {
             // RIP Disp32
@@ -372,7 +406,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
 
             *offset += 4;
             size_t out_off = strlen(out);
-            snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // RIP disp32, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
+            snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // RIP disp32, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
         }
         else if (mod == 1) {
             // Disp8
@@ -382,7 +416,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
 
             *offset += 1;
             size_t out_off = strlen(out);
-            snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // disp8, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
+            snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // disp8, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
         }
         else if (mod == 2) {
             // Disp32
@@ -392,15 +426,15 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
 
             *offset += 4;
             size_t out_off = strlen(out);
-            snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // disp32, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
+            snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // disp32, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
         } else if (mod == 3) {
             // Register
             size_t out_off = strlen(out);
-            snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN " %s, " CB_WHITE "%s ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, rm));
+            snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "%s ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, rm));
         }
     }
 
-    opcode_register_extension(inst.opcode, inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, out, inst.opcode16, opcode);
+    opcode_register_extension(inst.opcode, inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, out, outsz, inst.opcode16, opcode);
 
     size_t immsize = 4;
     if (opcode_needs_imm(inst.opcode, inst.rex_w, inst.b16_prefix, &immsize, inst.opcode16, opcode)) {
@@ -425,7 +459,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
         *offset += immsize;
 
         size_t out_off = strlen(out);
-        snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN " %lu ", inst.imm);
+        snprintf(out + out_off, outsz - out_off, CB_CYAN " %lu ", inst.imm);
     }
 
     if (out[0] == '\0') {
@@ -434,10 +468,10 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
 
     size_t out_off = strlen(out);
 
-    snprintf(out + out_off, sizeof(out) - out_off, C_WHITE "\t\t\t - %02X  ", (uint8_t)data[og_offset]);
+    snprintf(out + out_off, outsz - out_off, C_WHITE "\t\t\t - %02X  ", (uint8_t)data[og_offset]);
     for (size_t i = 1; i < (*offset - og_offset); i++) {
         out_off = strlen(out);
-        snprintf(out + out_off, sizeof(out) - out_off, "%02X  ", (uint8_t)data[og_offset + i]);
+        snprintf(out + out_off, outsz - out_off, "%02X  ", (uint8_t)data[og_offset + i]);
     }
 
     return;

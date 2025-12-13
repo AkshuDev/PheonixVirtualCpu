@@ -28,10 +28,34 @@ typedef struct {
     uint64_t advflags;
 } Inst;
 
-HashMap8 opcodes[] = {
+typedef enum {
+    NULL_MODE = 0, // No mode
+    REG_REG, // dest = src
+    REG_IMM, // src is actually a imm! dest is a reg (dest = src (as imm))
+    REG_EXTIMM, // Allows use of Bit 1 of Flags (dest = imm)
+    REG_DISP, // Allows use of Bit 2 of Flags (dest = mem[disp + PC])
+    LOAD_REGADDR, // dest = mem[src]
+    LOAD_IMMADDR, // dest = mem[imm]
+    LOAD_PC_REL, // dest = mem[src (as offset) + PC]
+    STORE_REGADDR, // mem[dest] = src
+    STORE_IMMADDR, // mem[imm] = src
+    STORE_PC_REL, // mem[dest (as offset) + PC] = src
+    // Special
+    SYSCALL_REG, // syscall(src)
+    SYSCALL_IMM, // syscall(imm)
+} Modes;
+
+static HashMap16 opcodes[] = {
     {0x0, "nop"},
-    {0x1, "add"}
+    // ALU
+    {0x1, "add"}, {0x2, "sub"}, {0x3, "mul"}, {0x4, "div"}, {0x5, "cmp"},
+    // Memory
+    {0x100, "load"}, {0x101, "store"},
+    // Movement
+    {0x150, "mov"}
 };
+
+static size_t opcodes_count = sizeof(opcodes) / sizeof(opcodes[0]);
 
 static const char* decode_reg(uint8_t reg) {
     switch (reg) {
@@ -79,20 +103,20 @@ static const char* decode_reg(uint8_t reg) {
     }
 }
 
-void decode_pvcpu(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
-    Inst inst = {0};
+void decode_pvcpu(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t outsz) {
+    size_t og_offset = *offset;
 
-    uint16_t op_mode;
-    memcpy(&op_mode, &data[*offset], sizeof(op_mode));
+    Inst inst = {0};
+    uint32_t inst_raw;
+    memcpy(&inst_raw, &data[*offset], sizeof(inst_raw));
+
+    uint16_t op_mode = (inst_raw & 0b11111111111111110000000000000000) >> 16;
     uint16_t opcode = (op_mode & 0b1111111111110000) >> 4;
     uint8_t mode = (op_mode & 0b0000000000001111);
     inst.opcode = opcode;
     inst.mode = mode;
 
-    *offset += 2;
-
-    uint16_t reg_flags;
-    memcpy(&reg_flags, &data[*offset], sizeof(reg_flags));
+    uint16_t reg_flags = (inst_raw & 0b00000000000000001111111111111111);
     uint8_t src = (reg_flags & 0b1111110000000000) >> 10;
     uint8_t dest = (reg_flags & 0b0000001111110000) >> 4;
     uint8_t flags = (reg_flags & 0b0000000000001111);
@@ -101,7 +125,7 @@ void decode_pvcpu(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
     inst.dest = dest;
     inst.flags = flags;
 
-    *offset += 2;
+    *offset += 4;
 
     if (!(flags & FLAGS_VALID)) {
         strcpy(out, CB_RED "(invalid) ");
@@ -127,7 +151,32 @@ void decode_pvcpu(uint8_t* data, size_t* offset, size_t cvaddr, char* out) {
     }
 
     size_t out_off = strlen(out);
+    snprintf(out + out_off, outsz - out_off, CB_RED "%s ", get_value_hashmap16(opcodes, inst.opcode, opcodes_count));
+    out_off = strlen(out);
     switch (mode) {
-        case MODE_REGREG: snprintf(out + out_off, sizeof(out) - out_off, CB_CYAN "%s, %s", decode_reg(dest), decode_reg(src));
+        case NULL_MODE: break;
+        case REG_REG: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, %s ", decode_reg(inst.dest), decode_reg(inst.src)); break;
+        case REG_IMM: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, %d ", decode_reg(inst.dest), (int)inst.src); break;
+        case REG_EXTIMM: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, %lld ", decode_reg(inst.dest), (long long int)inst.imm); break;
+        case REG_DISP: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, [0x%llx] // Disp64, 0x%llx ", decode_reg(inst.dest), (unsigned long long int)((size_t)inst.disp64 + cvaddr), (unsigned long long int)inst.disp64); break;
+        case LOAD_REGADDR: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, [%x] ", decode_reg(inst.dest), (unsigned int)inst.src); break;
+        case LOAD_IMMADDR: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, [%llx] ", decode_reg(inst.dest), (unsigned long long int)inst.imm); break;
+        case LOAD_PC_REL: snprintf(out + out_off, outsz - out_off, CB_CYAN "%s, [%x + %llx] ", decode_reg(inst.dest), (int)inst.src, (unsigned long long int)cvaddr); break;
+        case STORE_REGADDR: snprintf(out + out_off, outsz - out_off, CB_CYAN "[%x], %s ", (unsigned int)inst.src, decode_reg(inst.src)); break;
+        case STORE_IMMADDR: snprintf(out + out_off, outsz - out_off, CB_CYAN "[%llx], %s ", (unsigned long long int)inst.imm, decode_reg(inst.src)); break;
+        case STORE_PC_REL: snprintf(out + out_off, outsz - out_off, CB_CYAN "[%x + %llx], %s ", (int)inst.src, (unsigned long long int)cvaddr, decode_reg(inst.src)); break;
+        case SYSCALL_REG: snprintf(out + out_off, outsz - out_off, CB_CYAN "syscall %u ", (unsigned int)inst.src); break;
+        case SYSCALL_IMM: snprintf(out + out_off, outsz - out_off, CB_CYAN "syscall %llu ", (unsigned long long int)inst.imm); break;
+        default: snprintf(out + out_off, outsz - out_off, CB_CYAN "(invalid) "); break;
     }
+
+    out_off = strlen(out);
+
+    snprintf(out + out_off, outsz - out_off, C_WHITE "\t\t\t - %02X  ", (uint8_t)data[og_offset]);
+    for (size_t i = 1; i < (*offset - og_offset); i++) {
+        out_off = strlen(out);
+        snprintf(out + out_off, outsz - out_off, "%02X  ", (uint8_t)data[og_offset + i]);
+    }
+
+    return;
 }

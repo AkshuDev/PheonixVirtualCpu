@@ -6,11 +6,11 @@
 #include <stddef.h>
 
 typedef enum {
-    UnknownArch,
-    x86,
-    x64,
-    PVCpu,
-    PVCpuC
+    Arch_Unknown,
+    Arch_x86,
+    Arch_x64,
+    Arch_PVCpu,
+    Arch_PVCpuC
 } Architecture;
 
 bool r_info_all(char* src, size_t size);
