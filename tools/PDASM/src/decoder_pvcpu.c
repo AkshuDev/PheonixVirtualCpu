@@ -41,18 +41,25 @@ typedef enum {
     STORE_IMMADDR, // mem[imm] = src
     STORE_PC_REL, // mem[dest (as offset) + PC] = src
     // Special
-    SYSCALL_REG, // syscall(src)
-    SYSCALL_IMM, // syscall(imm)
+    SRC_REG, // opcode (src)
+    SRC_REG_IMM, // opcode (src (as imm))
+    SRC_IMM, // opcode (imm)
 } Modes;
 
 static HashMap16 opcodes[] = {
     {0x0, "nop"},
     // ALU
-    {0x1, "add"}, {0x2, "sub"}, {0x3, "mul"}, {0x4, "div"}, {0x5, "cmp"},
+    {0x1, "add"}, {0x2, "sub"}, {0x3, "mul"}, {0x4, "div"}, {0x5, "cmp"}, {0x6, "ucmp"}, {0x7, "and"}, {0x8, "or"}, {0x9, "not"},
+    {0xA, "nand"}, {0xB, "nor"}, {0xC, "xor"}, {0xE, "shl"}, {0xF, "shr"}, {0x10, "rotl"}, {0x11, "rotr"}, {0x12, "ashl"},
+    {0x13, "ashr"}, {0x14, "inc"}, {0x15, "dec"}, {0x16, "test"},
     // Memory
-    {0x100, "load"}, {0x101, "store"},
+    {0x100, "load"}, {0x101, "store"}, {0x102, "push"}, {0x103, "pop"}, {0x104, "push16"}, {0x105, "pop16"}, {0x106, "push32"},
+    {0x107, "pop32"}, {0x108, "push64"}, {0x109, "pop64"}, {0x10A, "mset"}, {0x10B, "mcpy"}, {0x10C, "mcmp"},
     // Movement
-    {0x150, "mov"}
+    {0x115, "mov"}, {0x116, "movb"}, {0x117, "movw"}, {0x118, "movd"}, {0x119, "movq"}, {0x11A, "xchg"}, {0x11B, "rreg"},
+    // Jumping and more
+    {0x12C, "jmp"}, {0x12D, "call"}, {0x12E, "ret"}, {0x12F, "exception"}, {0x130, "jz"}, {0x131, "jnz"}, {0x132, "jl"},
+    {0x133, "jle"}, {0x134, "jg"}, {0x135, "jge"}, {0x136, "je"}, {0x137, "jne"}
 };
 
 static size_t opcodes_count = sizeof(opcodes) / sizeof(opcodes[0]);
@@ -165,8 +172,9 @@ void decode_pvcpu(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_
         case STORE_REGADDR: snprintf(out + out_off, outsz - out_off, CB_CYAN "[%x], %s ", (unsigned int)inst.src, decode_reg(inst.src)); break;
         case STORE_IMMADDR: snprintf(out + out_off, outsz - out_off, CB_CYAN "[%llx], %s ", (unsigned long long int)inst.imm, decode_reg(inst.src)); break;
         case STORE_PC_REL: snprintf(out + out_off, outsz - out_off, CB_CYAN "[%x + %llx], %s ", (int)inst.src, (unsigned long long int)cvaddr, decode_reg(inst.src)); break;
-        case SYSCALL_REG: snprintf(out + out_off, outsz - out_off, CB_CYAN "syscall %u ", (unsigned int)inst.src); break;
-        case SYSCALL_IMM: snprintf(out + out_off, outsz - out_off, CB_CYAN "syscall %llu ", (unsigned long long int)inst.imm); break;
+        case SRC_REG: snprintf(out + out_off, outsz - out_off, CB_CYAN " %u ", (unsigned int)inst.src); break;
+        case SRC_REG_IMM: snprintf(out + out_off, outsz - out_off, CB_CYAN " %u ", (unsigned int)inst.src); break;
+        case SRC_IMM: snprintf(out + out_off, outsz - out_off, CB_CYAN " %llu ", (unsigned long long int)inst.imm); break;
         default: snprintf(out + out_off, outsz - out_off, CB_CYAN "(invalid) "); break;
     }
 

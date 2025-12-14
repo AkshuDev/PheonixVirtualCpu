@@ -58,6 +58,25 @@ static uint8_t* read_file(const char* filename, size_t* out_size) {
     return buf;
 }
 
+static void print_help() {
+    printf("Usage: pdasm <func>[sep]<value>[sep]<args>\n\nCommands:\n");
+    
+    printf("info:<file>        -  Shows information about specified executable file. Subcommands:\n");
+    printf("\tall (default)    -  Shows all available information\n");
+    printf("\tsections         -  Shows only section information\n");
+    printf("\tsymbols          -  Shows symbol information\n");
+    printf("\trelocs           -  Shows relocation information\n");
+    printf("\tprogram          -  Shows program information, such as loading\n");
+    printf("\tbasic            -  Shows basic information\n");
+    
+    printf("\ndisassemble:<file> -  Disassembles the file, using the executable information. Subcommands:\n");
+    printf("\tbinary           -  The file is a binary, when using this, please also specify architecture\n");
+    printf("\tarch-<architecture> - Incase the file is a binary, use this to specify the architecture. Available architectures:\n");
+    printf("\t\tx86\n\t\tx86_64/x64\n\t\tpvcpu (Pheonix Virtual Cpu)\n\t\tpvcpuc/pvcpu_c (Pheonix Virtual Cpu Compressed)\n");
+
+    printf("\nhelp               - Display this message\n");
+}
+
 static void decode(char* src, size_t size, Architecture arch, size_t svaddr, size_t soff, size_t code_size) {
     if (soff > size) {
         printf(CB_RED "File truncated, maybe?\n" CS_RESET);
@@ -119,23 +138,57 @@ int main(int argc, char** argv) {
 
     const char* func = parts[0];
     const char* value = (count > 1 ? parts[1] : NULL);
-    if (!value) {
+    if (!value && strcmp(func, "help") != 0) {
         fprintf(stderr, CB_RED "Please pass value to function [%s]\n" CS_RESET, func);
         return 3;
     }
 
     if (strcmp(func, "info") == 0) {
+        bool basic = false;
+        bool sections = false;
+        bool program = false;
+        bool symbols = false;
+        bool all = false;
+        bool relocs = false;
+
+        if (count > 2) {
+            for (int i = 2; i < count; i++) {
+                char* arg = parts[i];
+                if (strcmp(arg, "basic") == 0) {
+                    basic = true;
+                } else if (strcmp(arg, "sections") == 0) {
+                    sections = true;
+                } else if (strcmp(arg, "program") == 0) {
+                    program = true;
+                } else if (strcmp(arg, "symbols") == 0) {
+                    symbols = true;
+                } else if (strcmp(arg, "relocs") == 0) {
+                    relocs = true;
+                } else if (strcmp(arg, "all") == 0) {
+                    all = true;
+                }
+            }
+        } else {
+            all = true;
+        }
+
         size_t size = 0;
         char* src = (char*)read_file(value, &size);
         if (size == 0 || src == NULL) {
             fprintf(stderr, CB_RED "Error: Could not read file properly!\n" CS_RESET);
             return 4;
         }
-        r_info_all(src, size);
+        
+        if (all) r_info_all(src, size);
+        if (basic) r_info_basic(src, size);
+        if (program) r_info_program(src, size);
+        if (sections) r_info_sections(src, size);
+        if (symbols) r_info_symbols(src, size);
+        if (relocs) r_info_relocs(src, size);
 
         free(src);
     } else if (strcmp(func, "disassemble") == 0 || strcmp(func, "dasm") == 0) {
-        bool binary;
+        bool binary = false;
         Architecture arch = Arch_Unknown;
 
         if (count > 2) {
@@ -200,6 +253,8 @@ int main(int argc, char** argv) {
         }
 
         free(src);
+    } else if (strcmp(func, "help") == 0) {
+        print_help();
     }
 
     return 0;

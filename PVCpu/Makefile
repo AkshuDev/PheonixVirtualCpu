@@ -19,7 +19,7 @@ endif
 
 # Cross-build for Windows (mingw)
 ifeq ($(BUILD_WIN),1)
-    CC := x86_64-w64-mingw32-gcc
+    CC := x86_64-w64-mingw32-gcc -static-libgcc
     OS := windows
 endif
 

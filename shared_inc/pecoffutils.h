@@ -35,3 +35,12 @@ static inline const char* pe_magic_to_string(uint16_t magic) {
     }
 }
 
+static const char* pecoff_section_index_to_string(int16_t idx) {
+    switch (idx) {
+        case  0: return "UND";
+        case -1: return "ABS";
+        case -2: return "DBG";
+        default: return NULL;
+    }
+}
+

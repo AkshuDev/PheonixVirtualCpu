@@ -290,3 +290,36 @@ static inline const char* elf_sh_type_to_string(uint32_t type) {
     }
 }
 
+static inline const char* elf_sym_type_to_string(uint32_t type) {
+    switch (type) {
+        case STT_NOTYPE: return "NOTYPE";
+        case STT_OBJECT: return "OBJECT";
+        case STT_FUNC: return "FUNC";
+        case STT_SECTION: return "SECTION";
+        case STT_FILE: return "FILE";
+        case STT_LOPROC: return "LOPROC";
+        case STT_HIPROC: return "HIPROC"; 
+        default: return "UNKNOWN";
+    }
+}
+
+static inline const char* elf_sym_bind_to_string(uint32_t bind) {
+    switch (bind) {
+        case STB_LOPROC: return "LOPROC";
+        case STB_HIPROC: return "HIPROC";
+        case STB_LOCAL: return "LOCAL";
+        case STB_GLOBAL: return "GLOBAL";
+        case STB_WEAK: return "WEAK";
+        default: return "UNKNOWN";
+    }
+}
+
+static inline const char* elf_sym_visibility_to_string(uint32_t visibility) {
+    switch (visibility) {
+        case STV_DEFAULT: return "DEFAULT";
+        case STV_INTERNAL: return "INTERNAL";
+        case STV_HIDDEN: return "HIDDEN";
+        case STV_PROTECTED: return "PROTECTED";
+        default: return "UNKNOWN";
+    }
+}

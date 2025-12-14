@@ -226,16 +226,222 @@ static void print_elf_section_headers32(const Elf32_Ehdr* ehdr, char* src, size_
     }
 }
 
+static void print_elf_symbols64(const Elf64_Ehdr* ehdr, char* src, size_t size) {
+    printf("\n===== Symbols =====\n");
+
+    if ((size_t)(ehdr->e_shoff) >= size) {
+        printf("File truncated, maybe?\n");
+        return;
+    }
+
+    const Elf64_Shdr* sh_table = (const Elf64_Shdr*)(src + ehdr->e_shoff);
+    char* strtab = NULL;
+    char* shstrtab = (char*)(src + sh_table[ehdr->e_shstrndx].sh_offset);
+    Elf64_Sym* symtab = NULL;
+    size_t symcount = 0;
+
+    for (size_t i = 0; i < ehdr->e_shnum; i++) {
+        Elf64_Shdr* sec = (Elf64_Shdr*)&sh_table[i];
+        if (sec->sh_type == SHT_STRTAB && i != ehdr->e_shstrndx) {
+            strtab = (char*)(src + sec->sh_offset);
+        } else if (sec->sh_type == SHT_SYMTAB) {
+            symtab = (Elf64_Sym*)(src + sec->sh_offset);
+            symcount = sec->sh_size / sec->sh_entsize;
+        }
+    }
+
+    if (!symtab || !strtab) {
+        printf("No symbol table found.\n");
+        return;
+    }
+
+    printf("%-4s %-24s %-8s %-8s %-10s %-6s %-10s\n", "Idx", "Name", "Type", "Bind", "Value", "Size", "Section");
+    printf("--------------------------------------------------------------------------------------------------\n");
+
+    for (size_t i = 0; i < symcount; i++) {
+        Elf64_Sym* sym = (Elf64_Sym*)&symtab[i];
+        const char* type = elf_sym_type_to_string((uint32_t)ELF64_ST_TYPE(sym->st_info));
+        const char* bind = elf_sym_bind_to_string((uint32_t)ELF64_ST_BIND(sym->st_info));
+        char* name = strtab != NULL ? (char*)(strtab + sym->st_name) : "INVALID";
+        char* secname;
+
+        if (sym->st_shndx == SHN_UNDEF)
+            secname = "UND";
+        else if (sym->st_shndx == SHN_ABS)
+            secname = "ABS";
+        else
+            secname = shstrtab + sh_table[sym->st_shndx].sh_name;
+
+        printf("%-4zu %-24s %-8s %-8s 0x%08lx %-6lu %-10s\n", i, name, type, bind, sym->st_value, sym->st_size, secname);
+    }
+}
+
+static void print_elf_relocations64(const Elf64_Ehdr* ehdr, char* src, size_t size) {
+    printf("\n===== Relocations =====\n");
+
+    if ((size_t)ehdr->e_shoff >= size) {
+        printf("File truncated, maybe?\n");
+        return;
+    }
+
+    const Elf64_Shdr* sh_table = (const Elf64_Shdr*)(src + ehdr->e_shoff);
+    const char* shstrtab = src + sh_table[ehdr->e_shstrndx].sh_offset;
+
+    for (size_t i = 0; i < ehdr->e_shnum; i++) {
+        const Elf64_Shdr* sh = &sh_table[i];
+
+        if (sh->sh_type != SHT_REL && sh->sh_type != SHT_RELA)
+            continue;
+
+        const char* secname = shstrtab + sh->sh_name;
+        size_t count = sh->sh_size / sh->sh_entsize;
+
+        Elf64_Sym* symtab = (Elf64_Sym*)(src + sh_table[sh->sh_link].sh_offset);
+        const char* strtab = src + sh_table[sh_table[sh->sh_link].sh_link].sh_offset;
+
+        printf("\n-- Relocation section '%s' (%zu entries) --\n", secname, count);
+        printf("%-4s %-10s %-10s %-16s %-10s\n", "Idx", "Offset", "Type", "Symbol", "Addend");
+        printf("---------------------------------------------------------------------------\n");
+
+        for (size_t j = 0; j < count; j++) {
+            if (sh->sh_type == SHT_REL) {
+                Elf64_Rel rel;
+                memcpy(&rel, src + sh->sh_offset + j * sizeof(Elf64_Rel), sizeof(Elf64_Rel));
+                uint32_t sym_idx = ELF64_R_SYM(rel.r_info);
+                uint32_t type = ELF64_R_TYPE(rel.r_info);
+
+                const char* symname = sym_idx ? strtab + symtab[sym_idx].st_name : "<none>";
+
+                printf("%-4zu 0x%08lx %-10u %-16s %-10s\n", j, rel.r_offset, type, symname, "—");
+            } else {
+                Elf64_Rela rela;
+                memcpy(&rela, src + sh->sh_offset + j * sizeof(Elf64_Rela), sizeof(Elf64_Rela));
+                uint32_t sym_idx = ELF64_R_SYM(rela.r_info);
+                uint32_t type = ELF64_R_TYPE(rela.r_info);
+
+                const char* symname = sym_idx ? strtab + symtab[sym_idx].st_name : "<none>";
+
+                printf("%-4zu 0x%08lx %-10u %-16s %-8ld\n", j, rela.r_offset, type, symname, rela.r_addend);
+            }
+        }
+    }
+}
+
+static void print_elf_symbols32(const Elf32_Ehdr* ehdr, char* src, size_t size) {
+    printf("\n===== Symbols =====\n");
+
+    if ((size_t)(ehdr->e_shoff) >= size) {
+        printf("File truncated, maybe?\n");
+        return;
+    }
+
+    const Elf32_Shdr* sh_table = (const Elf32_Shdr*)(src + ehdr->e_shoff);
+    char* strtab = NULL;
+    char* shstrtab = (char*)(src + sh_table[ehdr->e_shstrndx].sh_offset);
+    Elf32_Sym* symtab = NULL;
+    size_t symcount = 0;
+
+    for (size_t i = 0; i < ehdr->e_shnum; i++) {
+        Elf32_Shdr* sec = (Elf32_Shdr*)&sh_table[i];
+        if (sec->sh_type == SHT_STRTAB && i != ehdr->e_shstrndx) {
+            strtab = (char*)(src + sec->sh_offset);
+        } else if (sec->sh_type == SHT_SYMTAB) {
+            symtab = (Elf32_Sym*)(src + sec->sh_offset);
+            symcount = sec->sh_size / sec->sh_entsize;
+        }
+    }
+
+    if (!symtab || !strtab) {
+        printf("No symbol table found.\n");
+        return;
+    }
+
+    printf("%-4s %-24s %-8s %-8s %-10s %-6s %-10s\n", "Idx", "Name", "Type", "Bind", "Value", "Size", "Section");
+    printf("--------------------------------------------------------------------------------------------------\n");
+
+    for (size_t i = 0; i < symcount; i++) {
+        Elf32_Sym* sym = (Elf32_Sym*)&symtab[i];
+        const char* type = elf_sym_type_to_string((uint32_t)ELF32_ST_TYPE(sym->st_info));
+        const char* bind = elf_sym_bind_to_string((uint32_t)ELF32_ST_BIND(sym->st_info));
+        char* name = strtab != NULL ? (char*)(strtab + sym->st_name) : "INVALID";
+        char* secname;
+
+        if (sym->st_shndx == SHN_UNDEF)
+            secname = "UND";
+        else if (sym->st_shndx == SHN_ABS)
+            secname = "ABS";
+        else
+            secname = shstrtab + sh_table[sym->st_shndx].sh_name;
+
+        printf("%-4zu %-24s %-8s %-8s 0x%08x %-6u %-10s\n", i, name, type, bind, sym->st_value, sym->st_size, secname);
+    }
+}
+
+static void print_elf_relocations32(const Elf32_Ehdr* ehdr, char* src, size_t size) {
+    printf("\n===== Relocations =====\n");
+
+    if ((size_t)ehdr->e_shoff >= size) {
+        printf("File truncated, maybe?\n");
+        return;
+    }
+
+    const Elf32_Shdr* sh_table = (const Elf32_Shdr*)(src + ehdr->e_shoff);
+    const char* shstrtab = src + sh_table[ehdr->e_shstrndx].sh_offset;
+
+    for (size_t i = 0; i < ehdr->e_shnum; i++) {
+        const Elf32_Shdr* sh = &sh_table[i];
+
+        if (sh->sh_type != SHT_REL && sh->sh_type != SHT_RELA)
+            continue;
+
+        const char* secname = shstrtab + sh->sh_name;
+        size_t count = sh->sh_size / sh->sh_entsize;
+
+        Elf32_Sym* symtab = (Elf32_Sym*)(src + sh_table[sh->sh_link].sh_offset);
+        const char* strtab = src + sh_table[sh_table[sh->sh_link].sh_link].sh_offset;
+
+        printf("\n-- Relocation section '%s' (%zu entries) --\n", secname, count);
+        printf("%-4s %-10s %-10s %-16s %-10s\n", "Idx", "Offset", "Type", "Symbol", "Addend");
+        printf("---------------------------------------------------------------------------\n");
+
+        for (size_t j = 0; j < count; j++) {
+            if (sh->sh_type == SHT_REL) {
+                Elf32_Rel rel;
+                memcpy(&rel, src + sh->sh_offset + j * sizeof(Elf32_Rel), sizeof(Elf32_Rel));
+                uint32_t sym_idx = ELF32_R_SYM(rel.r_info);
+                uint32_t type = ELF32_R_TYPE(rel.r_info);
+
+                const char* symname = sym_idx ? strtab + symtab[sym_idx].st_name : "<none>";
+
+                printf("%-4zu 0x%08x %-10u %-16s %-10s\n", j, rel.r_offset, type, symname, "—");
+            } else {
+                Elf32_Rela rela;
+                memcpy(&rela, src + sh->sh_offset + j * sizeof(Elf32_Rela), sizeof(Elf32_Rela));
+                uint32_t sym_idx = ELF32_R_SYM(rela.r_info);
+                uint32_t type = ELF32_R_TYPE(rela.r_info);
+
+                const char* symname = sym_idx ? strtab + symtab[sym_idx].st_name : "<none>";
+
+                printf("%-4zu 0x%08x %-10u %-16s 0x%-8d\n", j, rela.r_offset, type, symname, rela.r_addend);
+            }
+        }
+    }
+}
+
 static void print_all_elf64(const Elf64_Ehdr* ehdr, char* src, size_t size) {
     print_elf_header64(ehdr);
     print_elf_program_headers64(ehdr, src, size);
     print_elf_section_headers64(ehdr, src, size);
+    print_elf_symbols64(ehdr, src, size);
+    print_elf_relocations64(ehdr, src, size);
 }
 
 static void print_all_elf32(const Elf32_Ehdr* ehdr, char* src, size_t size) {
     print_elf_header32(ehdr);
     print_elf_program_headers32(ehdr, src, size);
     print_elf_section_headers32(ehdr, src, size);
+    print_elf_symbols32(ehdr, src, size);
+    print_elf_relocations32(ehdr, src, size);
 }
 
 static void print_dos_header(const DOS_Hdr* dos) {
@@ -245,13 +451,14 @@ static void print_dos_header(const DOS_Hdr* dos) {
 }
 
 static void print_pe_header(const DOS_Hdr* doshdr, char* src, size_t size) {
+    printf("\n===== PE File Header =====\n");
+
     if ((size_t)(doshdr->e_lfanew) >= size) {
         printf("File truncated, maybe?\n");
         return;
     }
 
     const PE_Hdr* pe_hdr = (const PE_Hdr*)(src + doshdr->e_lfanew);
-    printf("\n===== PE File Header =====\n");
     printf("%-20s %-20s %-20s\n", "Machine", "Sections", "TimeDateStamp");
     time_t ts = pe_hdr->time_date_stamp;
     struct tm* tm_info = localtime(&ts);
@@ -272,13 +479,14 @@ static void print_pe_header(const DOS_Hdr* doshdr, char* src, size_t size) {
 }
 
 static void print_pe_optional_header32(const DOS_Hdr* doshdr, char* src, size_t size) {
+    printf("\n===== Optional Header (PE32) =====\n");
+
     if ((size_t)(doshdr->e_lfanew) >= size) {
         printf("File truncated, maybe?\n");
         return;
     }
 
     const Optional_Hdr_32* oh = (const Optional_Hdr_32*)(src + doshdr->e_lfanew + sizeof(PE_Hdr));
-    printf("\n===== Optional Header (PE32) =====\n");
     printf("%-20s %-16s %-16s %-16s %-16s\n", "Magic", "EntryPoint", "ImageBase", "SectionAlign", "FileAlign");
     printf(
         "%-20s\t0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
@@ -288,6 +496,8 @@ static void print_pe_optional_header32(const DOS_Hdr* doshdr, char* src, size_t 
 }
 
 static void print_pe_optional_header(const DOS_Hdr* doshdr, char* src, size_t size) {
+    printf("\n===== Optional Header (PE32+) =====\n");
+
     if ((size_t)(doshdr->e_lfanew) >= size) {
         printf("File truncated, maybe?\n");
         return;
@@ -299,7 +509,6 @@ static void print_pe_optional_header(const DOS_Hdr* doshdr, char* src, size_t si
         return;
     }
 
-    printf("\n===== Optional Header (PE32+) =====\n");
     printf("%-20s %-16s %-16s %-16s %-16s\n", "Magic", "EntryPoint", "ImageBase", "SectionAlign", "FileAlign");
     printf(
         "%-20s\t0x%08x\t0x%08lx\t0x%08x\t0x%08x\n",
@@ -309,6 +518,8 @@ static void print_pe_optional_header(const DOS_Hdr* doshdr, char* src, size_t si
 }
 
 static void print_pe_sections(const DOS_Hdr* doshdr, char* src, size_t size) {
+    printf("\n===== Section Headers =====\n");
+
     if ((size_t)(doshdr->e_lfanew) >= size) {
         printf("File truncated, maybe?\n");
         return;
@@ -318,7 +529,6 @@ static void print_pe_sections(const DOS_Hdr* doshdr, char* src, size_t size) {
     Section_Hdr* sections = (Section_Hdr*)(src + doshdr->e_lfanew + sizeof(PE_Hdr) + pe_hdr->size_of_optional_header);
     int count = pe_hdr->no_of_sections;
 
-    printf("\n===== Section Headers =====\n");
     printf("%-8s %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n", "Name", "VirtSize", "VirtAddr", "SizeRaw", "PtrRaw", "RelocPtr", "LinenumPtr", "Flags");
     printf("----------------------------------------------------------------------------------------------------------------------------------------\n");
 
@@ -333,11 +543,69 @@ static void print_pe_sections(const DOS_Hdr* doshdr, char* src, size_t size) {
     }
 }
 
+static void print_pe_symbols(const DOS_Hdr* doshdr, char* src, size_t size) {
+    printf("\n===== COFF Symbols =====\n");
+
+    if ((size_t)doshdr->e_lfanew >= size) {
+        printf("File truncated, maybe?\n");
+        return;
+    }
+
+    const PE_Hdr* pe = (const PE_Hdr*)(src + doshdr->e_lfanew);
+
+    if (pe->ptr_to_symtab == 0 || pe->no_of_symbols == 0) {
+        printf("No symbol table present.\n");
+        return;
+    }
+
+    const Section_Hdr* sectab = (const Section_Hdr*)((const char*)pe + sizeof(PE_Hdr) + pe->size_of_optional_header);
+
+    const char* sym_base = src + pe->ptr_to_symtab;
+    const char* strtab = sym_base + (pe->no_of_symbols * sizeof(Symbol_Entry));
+
+    printf("%-4s %-24s %-10s %-10s %-8s\n", "Idx", "Name", "Value", "Section", "Type");
+    printf("------------------------------------------------------------------------\n");
+
+    for (size_t i = 0; i < pe->no_of_symbols; i++) {
+        Symbol_Entry sym;
+        memcpy(&sym, sym_base + i * sizeof(Symbol_Entry), sizeof(Symbol_Entry));
+
+        const char* name;
+        char namebuf[256];
+
+        if (sym.name.zeros == 0) {
+            uint32_t off = sym.name.offset;
+            name = strtab + off;
+        } else {
+            memcpy(namebuf, (uint8_t*)&sym.name.short_name, 8);
+            namebuf[8] = '\0';
+            name = namebuf;
+        }
+
+        const char* secname = pecoff_section_index_to_string(sym.section_no);
+        char secbuf[9];
+
+        if (!secname && sym.section_no > 0 && sym.section_no <= pe->no_of_sections) {
+            memcpy(secbuf, (uint8_t*)&sectab[sym.section_no - 1].name, 8);
+            secbuf[8] = '\0';
+            secname = secbuf;
+        }
+        if (!secname) secname = "INVALID";
+
+        const char* type = (sym.type == 0x20) ? "FUNC" : (sym.type == 0x00) ? "NULL" : "OTHER";
+
+        printf("%-4zu %-24s 0x%08x %-10s %-8s\n", i, name, sym.value, secname, type);
+
+        i += sym.no_aux_symbols;
+    }
+}
+
 static void print_all_pe(const DOS_Hdr* doshdr, char* src, size_t size) {
     print_dos_header(doshdr);
     print_pe_header(doshdr, src, size);
     print_pe_optional_header(doshdr, src, size);
     print_pe_sections(doshdr, src, size);
+    print_pe_symbols(doshdr, src, size);
 }
 
 bool r_info_basic(char* src, size_t size) {
@@ -402,10 +670,10 @@ bool r_info_sections(char* src, size_t size) {
     return true;
 }
 
-bool r_info_program_headers(char* src, size_t size) {
+bool r_info_program(char* src, size_t size) {
     if (is_pe(src, size)) {
-        fprintf(stderr, "PE files don't have program headers!\n");
-        return false;
+        const DOS_Hdr* doshdr = (const DOS_Hdr*)src;
+        print_pe_optional_header(doshdr, src, size);
     } else {
         // ELF
         char error_info[128];
@@ -420,6 +688,54 @@ bool r_info_program_headers(char* src, size_t size) {
             print_elf_program_headers32(ehdr32, src, size);
         } else {
             print_elf_program_headers64(ehdr, src, size);
+        }
+    }
+
+    return true;
+}
+
+bool r_info_symbols(char* src, size_t size) {
+    if (is_pe(src, size)) {
+        const DOS_Hdr* doshdr = (const DOS_Hdr*)src;
+        print_pe_symbols(doshdr, src, size);
+    } else {
+        // ELF
+        char error_info[128];
+        if (!validate_elf(src, size, error_info)) {
+            fprintf(stderr, "Error: %s\n", error_info);
+            return false;
+        }
+
+        const Elf64_Ehdr* ehdr = (const Elf64_Ehdr*)(src);
+        if (ehdr->e_ident[EI_CLASS] == ELFCLASS32) {
+            const Elf32_Ehdr* ehdr32 = (const Elf32_Ehdr*)(src);
+            print_elf_symbols32(ehdr32, src, size);
+        } else {
+            print_elf_symbols64(ehdr, src, size);
+        }
+    }
+
+    return true;
+}
+
+bool r_info_relocs(char* src, size_t size) {
+    if (is_pe(src, size)) {
+        const DOS_Hdr* doshdr = (const DOS_Hdr*)src;
+        print_pe_optional_header(doshdr, src, size);
+    } else {
+        // ELF
+        char error_info[128];
+        if (!validate_elf(src, size, error_info)) {
+            fprintf(stderr, "Error: %s\n", error_info);
+            return false;
+        }
+
+        const Elf64_Ehdr* ehdr = (const Elf64_Ehdr*)(src);
+        if (ehdr->e_ident[EI_CLASS] == ELFCLASS32) {
+            const Elf32_Ehdr* ehdr32 = (const Elf32_Ehdr*)(src);
+            print_elf_relocations32(ehdr32, src, size);
+        } else {
+            print_elf_relocations64(ehdr, src, size);
         }
     }
 

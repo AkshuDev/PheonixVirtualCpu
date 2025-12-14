@@ -523,19 +523,23 @@ typedef struct {
 } LineNo_Entry;
 
 typedef struct {
-    uint64_t name;
+    union {
+        uint64_t short_name;
+        struct {
+            uint32_t zeros;
+            uint32_t offset;
+        };
+    };
+} ShortName;
+
+typedef struct {
+    ShortName name;
     uint32_t value;
-    uint16_t section_no;
+    int16_t section_no;
     uint16_t type;
     uint8_t storage_class;
     uint8_t no_aux_symbols;
 } Symbol_Entry;
-
-typedef struct {
-    uint64_t short_name;
-    uint32_t zeros;
-    uint32_t offset;
-} ShortName;
 
 typedef enum {
     IMAGE_SYM_UNDEFINED = 0x0,
