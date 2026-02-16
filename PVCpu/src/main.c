@@ -10,6 +10,10 @@
 #include <pvcpu-validator.h>
 #include <pvcpu-helpers.h>
 
+#include <extra.h>
+
+#define PVCPU_USAGE "Usage: pvcpu command <OPTIONAL:input> <OPTIONAL:--[OPTIONS]>"
+
 static uint8_t* read_file(const char* filename, size_t* out_size) {
     FILE* f = fopen(filename, "rb");
     if (!f) {
@@ -40,6 +44,61 @@ static uint8_t* read_file(const char* filename, size_t* out_size) {
     return buf;
 }
 
+static void print_help() {
+    printf(PVCPU_USAGE "\n\nCommands:\n");
+    printf("run <file>      - Run a PVCpu binary\n");
+    printf("check <value>   - Debug command\n");
+    printf("help            - Display this message\n");
+}
+
+typedef struct {
+    bool help;
+    bool run;
+    bool check;
+    bool error;
+
+    char* run_input;
+    char* check_input;
+} Args_t;
+
+static void parse_args(Args_t* args, int argc, char** argv) {
+    memset(args, 0, sizeof(Args_t));
+
+    if (argc < 2) {
+        args->error = true;
+        return;
+    }
+
+    char* cmd = argv[1];
+
+    if (!strcmp(cmd, "help")) {
+        args->help = true;
+        return;
+    }
+    else if (!strcmp(cmd, "run")) {
+        args->run = true;
+        if (argc < 3) {
+            fprintf(stderr, "run requires <file>\n");
+            args->error = true;
+            return;
+        }
+        args->run_input = argv[2];
+    }
+    else if (!strcmp(cmd, "check")) {
+        args->check = true;
+        if (argc < 3) {
+            fprintf(stderr, "check requires <value>\n");
+            args->error = true;
+            return;
+        }
+        args->check_input = argv[2];
+    }
+    else {
+        fprintf(stderr, "Unknown command '%s'\n", cmd);
+        args->error = true;
+    }
+}
+
 int main(int argc, char** argv) {
 
     if (argc < 2) {
@@ -47,32 +106,18 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Copy to modifiable buffer
-    char buf[1024];
-    strncpy(buf, argv[1], sizeof(buf)-1);
-    buf[sizeof(buf)-1] = '\0';
-
-    char* parts[32];
-    int count = split_args(buf, parts, 32);
-
-    if (count < 1) {
-        fprintf(stderr, "Invalid input.\n");
+    Args_t args = {0};
+    parse_args(&args, argc, argv);
+    if (args.error) {
         return 2;
     }
 
-    const char* func  = parts[0];
-    const char* value = (count > 1 ? parts[1] : NULL);
-    if (!value) {
-        fprintf(stderr, "Please pass value to function [%s]\n", func);
-        return 3;
-    }
-
     // Route functions
-    if (strcmp(func, "run") == 0) {
+    if (args.run) {
         size_t file_size = 0;
-        uint8_t* program = read_file(value, &file_size);
+        uint8_t* program = read_file(args.run_input, &file_size);
         if (!program) {
-            fprintf(stderr, "Error: Could not read file [%s]\n", value);
+            fprintf(stderr, "Error: Could not read file [%s]\n", args.run_input);
             return 4;
         }
 
@@ -140,8 +185,8 @@ int main(int argc, char** argv) {
         free(inst_extflags);
         free(inst_extflags_count);
     }
-    else if (strcmp(func, "check") == 0) {
-        printf("Checking something %s\n", value);
+    else if (args.check) {
+        printf("Checking something %s\n", args.check_input);
     }
     else {
         fprintf(stderr, "Unknown command.\n");
