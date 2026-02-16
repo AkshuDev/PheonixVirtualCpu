@@ -12,21 +12,8 @@
 #include <decoder_x86.h>
 
 #define SArchs_Print "x86, x64/x86_64, pvcpu, pvcpuc/pvcpu_c"
-
-
-const char* SEPS = ":,-";
-
-// Split arguments using ANY of the separators
-static int split_args(char* input, char* out[], int max_parts) {
-    int count = 0;
-
-    char* tok = strtok(input, SEPS);
-    while (tok && count < max_parts) {
-        out[count++] = tok;
-        tok = strtok(NULL, SEPS);
-    }
-    return count;
-}
+#define SArchsEX_Print "x86, x64/x86_64, pvcpu (Pheonix Virtual Cpu), pvcpuc/pvcpu_c (Pheonix Virtual Cpu - Compressed)"
+#define PDASM_USAGE "Usage: pdasm <command> <OPTIONAL:input> <OPTIONAL:[OPTIONS]>\nExample: disassemble myfile\n"
 
 static uint8_t* read_file(const char* filename, size_t* out_size) {
     FILE* f = fopen(filename, "rb");
@@ -59,22 +46,134 @@ static uint8_t* read_file(const char* filename, size_t* out_size) {
 }
 
 static void print_help() {
-    printf("Usage: pdasm <func>[sep]<value>[sep]<args>\n\nCommands:\n");
+    printf(PDASM_USAGE "\n\nCommands:\n");
     
-    printf("info:<file>        -  Shows information about specified executable file. Subcommands:\n");
-    printf("\tall (default)    -  Shows all available information\n");
-    printf("\tsections         -  Shows only section information\n");
-    printf("\tsymbols          -  Shows symbol information\n");
-    printf("\trelocs           -  Shows relocation information\n");
-    printf("\tprogram          -  Shows program information, such as loading\n");
-    printf("\tbasic            -  Shows basic information\n");
+    printf("info <file>        -  Shows information about specified executable file. Subcommands:\n");
+    printf("\t--all (default)    -  Shows all available information\n");
+    printf("\t--sections         -  Shows only section information\n");
+    printf("\t--symbols          -  Shows symbol information\n");
+    printf("\t--relocs           -  Shows relocation information\n");
+    printf("\t--program          -  Shows program information, such as loading\n");
+    printf("\t--basic            -  Shows basic information\n");
     
-    printf("\ndisassemble:<file> -  Disassembles the file, using the executable information. Subcommands:\n");
-    printf("\tbinary           -  The file is a binary, when using this, please also specify architecture\n");
-    printf("\tarch-<architecture> - Incase the file is a binary, use this to specify the architecture. Available architectures:\n");
-    printf("\t\tx86\n\t\tx86_64/x64\n\t\tpvcpu (Pheonix Virtual Cpu)\n\t\tpvcpuc/pvcpu_c (Pheonix Virtual Cpu Compressed)\n");
+    printf("disassemble <file> -  Disassembles the file, using the executable information. Subcommands:\n");
+    printf("\t--binary              -  The file is a binary, when using this, please also specify architecture\n");
+    printf("\t--arch <architecture> - Incase the file is a binary, use this to specify the architecture. Available architectures:\n\t\t" SArchsEX_Print "\n");
 
-    printf("\nhelp               - Display this message\n");
+    printf("\nhelp             - Display this message\n");
+}
+
+typedef struct {
+    bool help;
+    bool info;
+    bool disassemble;
+
+    bool error;
+    
+    char* info_input;
+    bool info_all;
+    bool info_sections;
+    bool info_symbols;
+    bool info_relocs;
+    bool info_program;
+    bool info_basic;
+    
+    char* disassemble_input;
+    bool disassemble_binary;
+    Architecture disassemble_arch;
+} Args_t;
+
+static Architecture str_to_arch(char* s) {
+    if (strcmp(s, "x86") == 0 || strcmp(s, "i386") == 0) {
+        return Arch_x86;
+    } else if (strcmp(s, "x64") == 0 || strcmp(s, "x86_64") == 0 || strcmp(s, "amd64") == 0) {
+        return Arch_x64;
+    } else if (strcmp(s, "pvcpu") == 0) {
+        return Arch_PVCpu;
+    } else if (strcmp(s, "pvcpuc") == 0 || strcmp(s, "pvcpu-c") == 0 || strcmp(s, "c-pvcpu") == 0) {
+        return Arch_PVCpuC;
+    } else {
+        return Arch_Unknown;
+    }
+}
+
+static const char* arch_to_str(Architecture a) {
+    switch (a) {
+        case Arch_x86: return "x86";
+        case Arch_x64: return "x64";
+        case Arch_PVCpu: return "PVCpu";
+        case Arch_PVCpuC: return "PVCpu-C";
+        default: return "Unknown";
+    }
+}
+
+static void parse_args(Args_t* args, int argc, char** argv) {
+    memset(args, 0, sizeof(Args_t));
+    
+    char* cmd = argv[1];
+    if (strcmp(cmd, "help") == 0) {
+        args->help = true;
+        return;
+    } else if (strcmp(cmd, "info") == 0) {
+        args->info = true;
+        if (argc < 3) {
+            printf(CB_RED "Command '%s' requires an argument <input>!\n\t" CB_CYAN "Tip: Try using the 'help' command!\n" CS_RESET, cmd);
+            args->error = true;
+            return;
+        }
+        args->info_input = argv[2];
+        for (int i = 3; i < argc; i++) {
+            char* opt = argv[i];
+            if (strcmp(opt, "--all") == 0) {
+                args->info_all = true;
+            } else if (strcmp(opt, "--all") == 0) {
+                args->info_all = true;
+            } else if (strcmp(opt, "--sections") == 0) {
+                args->info_sections = true;
+            } else if (strcmp(opt, "--symbols") == 0) {
+                args->info_symbols = true;
+            } else if (strcmp(opt, "--relocs") == 0) {
+                args->info_relocs = true;
+            } else if (strcmp(opt, "--program") == 0) {
+                args->info_program = true;
+            } else if (strcmp(opt, "--basic") == 0) {
+                args->info_basic = true;
+            } else {
+                printf(CB_RED "Invalid Option for '%s' command: %s\n\t" CB_CYAN "Tip: Try 'help' command!\n" CS_RESET, cmd);
+                args->error = true;
+                return;
+            }
+        }
+    } else if (strcmp(cmd, "disassemble") == 0 || strcmp(cmd, "dasm") == 0) {
+        args->disassemble = true;
+        if (argc < 3) {
+            printf(CB_RED "Command '%s' requires an argument <input>!\n\t" CB_CYAN "Tip: Try using the 'help' command!\n" CS_RESET, cmd);
+            args->error = true;
+            return;
+        }
+        args->disassemble_input = argv[2];
+        for (int i = 3; i < argc; i++) {
+            char* opt = argv[i];
+            if (strcmp(opt, "--binary") == 0) {
+                args->disassemble_binary = true;
+            } else if (strcmp(opt, "--arch") == 0) {
+                if (i + 1 >= argc) {
+                    printf(CB_RED "Required argument <architecture> for option '--arch' of command '%s': %s\n\t" CB_CYAN "Tip: Try 'help' command!\n" CS_RESET, cmd, opt);
+                    args->error = true;
+                    return;
+                }
+                args->disassemble_arch = str_to_arch(argv[++i]);
+            } else {
+                printf(CB_RED "Invalid Option for '%s' command: %s\n\t" CB_CYAN "Tip: Try 'help' command!\n" CS_RESET, cmd, opt);
+                args->error = true;
+                return;
+            }
+        }
+    } else {
+        printf(CB_RED "Unknown command '%s'!\n\t" CB_CYAN "Tip: Try 'help' command!\n" CS_RESET, cmd);
+        args->error = true;
+        return;
+    }
 }
 
 static void decode(char* src, size_t size, Architecture arch, size_t svaddr, size_t soff, size_t code_size) {
@@ -119,123 +218,46 @@ static void decode(char* src, size_t size, Architecture arch, size_t svaddr, siz
 int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IONBF, 0); // Disable buffering for stdout
     if (argc < 2) {
-        fprintf(stderr, CB_RED "Usage: pdasm [func]<sep>[value]<sep>[args]\nExample: disassemble:myfile:arg1,arg_with_value-hi\n\tSeperators: ':', ',', '-'\n" CS_RESET);
+        fprintf(stderr, CB_RED PDASM_USAGE CS_RESET);
         return 1;
     }
 
-    // Copy to buffer
-    char buf[1024];
-    strncpy(buf, argv[1], sizeof(buf)-1);
-    buf[sizeof(buf)-1] = '\0';
-
-    char* parts[32];
-    int count = split_args(buf, parts, 32);
-
-    if (count < 1) {
-        fprintf(stderr, CB_RED "Invalid input.\n" CS_RESET);
+    Args_t args = {0};
+    parse_args(&args, argc, argv);
+    if (args.error) {
         return 2;
     }
 
-    const char* func = parts[0];
-    const char* value = (count > 1 ? parts[1] : NULL);
-    if (!value && strcmp(func, "help") != 0) {
-        fprintf(stderr, CB_RED "Please pass value to function [%s]\n" CS_RESET, func);
-        return 3;
-    }
-
-    if (strcmp(func, "info") == 0) {
-        bool basic = false;
-        bool sections = false;
-        bool program = false;
-        bool symbols = false;
-        bool all = false;
-        bool relocs = false;
-
-        if (count > 2) {
-            for (int i = 2; i < count; i++) {
-                char* arg = parts[i];
-                if (strcmp(arg, "basic") == 0) {
-                    basic = true;
-                } else if (strcmp(arg, "sections") == 0) {
-                    sections = true;
-                } else if (strcmp(arg, "program") == 0) {
-                    program = true;
-                } else if (strcmp(arg, "symbols") == 0) {
-                    symbols = true;
-                } else if (strcmp(arg, "relocs") == 0) {
-                    relocs = true;
-                } else if (strcmp(arg, "all") == 0) {
-                    all = true;
-                }
-            }
-        } else {
-            all = true;
-        }
-
+    if (args.info) {
         size_t size = 0;
-        char* src = (char*)read_file(value, &size);
+        char* src = (char*)read_file(args.info_input, &size);
         if (size == 0 || src == NULL) {
             fprintf(stderr, CB_RED "Error: Could not read file properly!\n" CS_RESET);
             return 4;
         }
         
-        if (all) r_info_all(src, size);
-        if (basic) r_info_basic(src, size);
-        if (program) r_info_program(src, size);
-        if (sections) r_info_sections(src, size);
-        if (symbols) r_info_symbols(src, size);
-        if (relocs) r_info_relocs(src, size);
+        if (args.info_basic) r_info_basic(src, size);
+        if (args.info_program) r_info_program(src, size);
+        if (args.info_sections) r_info_sections(src, size);
+        if (args.info_symbols) r_info_symbols(src, size);
+        if (args.info_relocs) r_info_relocs(src, size);
+        if (args.info_all) r_info_all(src, size);
 
         free(src);
-    } else if (strcmp(func, "disassemble") == 0 || strcmp(func, "dasm") == 0) {
-        bool binary = false;
-        Architecture arch = Arch_Unknown;
-
-        if (count > 2) {
-            for (int i = 2; i < count; i++) {
-                char* arg = parts[i];
-                if (strcmp(arg, "binary") == 0) {
-                    binary = true;
-                } else if (strcmp(arg, "arch") == 0) {
-                    if (i + 1 < count) {
-                        i++;
-                        char* a = parts[i];
-
-                        if (strcmp(a, "x86") == 0)
-                            arch = Arch_x86;
-                        else if (strcmp(a, "x64") == 0 || strcmp(a, "x86_64") == 0)
-                            arch = Arch_x64;
-                        else if (strcmp(a, "pvcpu") == 0)
-                            arch = Arch_PVCpu;
-                        else if (strcmp(a, "pvcpuc") == 0 || strcmp(a, "pvcpu_c") == 0)
-                            arch = Arch_PVCpuC;
-                        else {
-                            fprintf(stderr, CB_RED "Unknown Architecture: %s\n\tAvailable: [" SArchs_Print "]\n" CS_RESET, a);
-                            return 6;
-                        }
-                    } else {
-                        fprintf(stderr, CB_RED "Expected an Architecture?\n\tAvailable: [" SArchs_Print "]\n" CS_RESET);
-                        return 7;
-                    }
-                } else {
-                    printf(CB_YELLOW "Warning: Unknown argument - %s\n" CS_RESET, arg);
-                }
-            }
-        }
-
-        if (!binary && arch != Arch_Unknown) {
+    } else if (args.disassemble) {
+        if (!args.disassemble_binary && args.disassemble_arch != Arch_Unknown) {
             printf(CB_YELLOW "Warning: Can only specify architecture when using binary files! Defaulting to file specified architecture\n" CS_RESET);
-            arch = Arch_Unknown;
+            args.disassemble_arch = Arch_Unknown;
         }
 
         size_t size = 0;
-        char* src = (char*)read_file(value, &size);
+        char* src = (char*)read_file(args.disassemble_input, &size);
         if (size == 0 || src == NULL) {
             fprintf(stderr, CB_RED "Error: Could not read file properly!\n" CS_RESET);
             return 4;
         }
         
-        if (!binary) {
+        if (!args.disassemble_binary) {
             r_info_basic(src, size);
             Architecture arch = r_get_arch(src, size);
             size_t svaddr = 0;
@@ -244,16 +266,16 @@ int main(int argc, char** argv) {
 
             decode(src, size, arch, svaddr, text_off, code_size);
         } else {
-            if (arch == Arch_Unknown) {
+            if (args.disassemble_arch == Arch_Unknown) {
                 fprintf(stderr, CB_RED "Error: Please specify architecture when using binary files!\n" CS_RESET);
                 free(src);
                 return 5;
             }
-            decode(src, size, arch, 0, 0, size);
+            decode(src, size, args.disassemble_arch, 0, 0, size);
         }
 
         free(src);
-    } else if (strcmp(func, "help") == 0) {
+    } else if (args.help) {
         print_help();
     }
 
