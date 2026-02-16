@@ -10,20 +10,6 @@
 #include <pvcpu-validator.h>
 #include <pvcpu-helpers.h>
 
-const char* SEPS = ":,-";
-
-// Split arguments using ANY of the separators
-static int split_args(char* input, char* out[], int max_parts) {
-    int count = 0;
-
-    char* tok = strtok(input, SEPS);
-    while (tok && count < max_parts) {
-        out[count++] = tok;
-        tok = strtok(NULL, SEPS);
-    }
-    return count;
-}
-
 static uint8_t* read_file(const char* filename, size_t* out_size) {
     FILE* f = fopen(filename, "rb");
     if (!f) {
@@ -57,7 +43,7 @@ static uint8_t* read_file(const char* filename, size_t* out_size) {
 int main(int argc, char** argv) {
 
     if (argc < 2) {
-        fprintf(stderr, "Usage: pvcpu [func]<sep>[value]<sep>[args]\nExample: run:100:arg1,arg_with_value-hi\n\tSeperators: ':', ',', '-'\n");
+        fprintf(stderr, PVCPU_USAGE "\nExample: run:100:arg1,arg_with_value-hi\n\tSeperators: ':', ',', '-'\n");
         return 1;
     }
 
