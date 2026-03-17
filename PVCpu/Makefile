@@ -7,9 +7,9 @@ BUILD ?= debug
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
 CC := gcc
-CFLAGS_RELEASE := -Wall -Wextra -std=c17 -I inc -I ../shared_inc
-CFLAGS_DEBUG := -Wall -Wextra -std=c17 -g -fsanitize=address,undefined -I inc -I ../shared_inc
-LDFLAGS := 
+CFLAGS_RELEASE := -Wall -Wextra -std=c17 -I inc -I ../shared_inc -I ../PheonixCore/pheonix_stdlib/inc
+CFLAGS_DEBUG := -Wall -Wextra -std=c17 -g -fsanitize=address,undefined -I inc -I ../PheonixCore/pheonix_stdlib/inc -I ../shared_inc
+LDFLAGS := -L ../PheonixCore/pheonix_stdlib/bin/$(OS)/$(ARCH) -lpstdlib
 
 ifeq ($(BUILD),release)
 	CFLAGS := $(CFLAGS_RELEASE)

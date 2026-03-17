@@ -1,8 +1,11 @@
 // Author: Pheonix Studios/AkshuDev
+
 #pragma once
 
-#include <stddef.h>
 #include <stdint.h>
+#include <stddef.h>
+
+#include <pvcpu-isa.h>
 
 typedef struct {
     uint8_t* data;
@@ -10,8 +13,6 @@ typedef struct {
     size_t capacity;
 } Jit_Buf;
 
-static inline void jit_init(Jit_Buf* buf, size_t cap) {
-    buf->data = (uint8_t*)malloc(cap);
-    buf->size = 0;
-    buf->capacity = cap;
-}
+int jit_convert_program(RuntimeContext* ctx);
+
+typedef void (*JitFn)(void* cpu_state);

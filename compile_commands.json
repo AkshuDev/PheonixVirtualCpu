@@ -1,0 +1,117 @@
+[
+  {
+    "file": "src/helpers.c",
+    "arguments": [
+      "gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../PheonixCore/pheonix_stdlib/inc",
+      "-I",
+      "../shared_inc",
+      "-c",
+      "src/helpers.c",
+      "-o",
+      "build/helpers_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/PVCpu",
+    "output": "build/helpers_linux_x86_64.o"
+  },
+  {
+    "file": "src/isa.c",
+    "arguments": [
+      "gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../PheonixCore/pheonix_stdlib/inc",
+      "-I",
+      "../shared_inc",
+      "-c",
+      "src/isa.c",
+      "-o",
+      "build/isa_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/PVCpu",
+    "output": "build/isa_linux_x86_64.o"
+  },
+  {
+    "file": "src/main.c",
+    "arguments": [
+      "gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../PheonixCore/pheonix_stdlib/inc",
+      "-I",
+      "../shared_inc",
+      "-c",
+      "src/main.c",
+      "-o",
+      "build/main_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/PVCpu",
+    "output": "build/main_linux_x86_64.o"
+  },
+  {
+    "file": "src/validator.c",
+    "arguments": [
+      "gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../PheonixCore/pheonix_stdlib/inc",
+      "-I",
+      "../shared_inc",
+      "-c",
+      "src/validator.c",
+      "-o",
+      "build/validator_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/PVCpu",
+    "output": "build/validator_linux_x86_64.o"
+  },
+  {
+    "file": "../shared_src/reader.c",
+    "arguments": [
+      "gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../PheonixCore/pheonix_stdlib/inc",
+      "-I",
+      "../shared_inc",
+      "-c",
+      "../shared_src/reader.c",
+      "-o",
+      "build/reader_shared_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/PVCpu",
+    "output": "build/reader_shared_linux_x86_64.o"
+  }
+]

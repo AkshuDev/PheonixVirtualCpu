@@ -1,3 +1,6 @@
 [submodule "tools/PAC"]
 	path = tools/PAC
 	url = https://github.com/AkshuDev/PAC
+[submodule "PVCpu/PheonixCore"]
+	path = PheonixCore
+	url = git@github.com:AkshuDev/PheonixCore

@@ -1,5 +1,7 @@
 # PVCpu Instruction Set Architecture (ISA)
 
+*PVCpu* and *PVCpu-C* can be categorised as *MHSA* **(Modern Huge Simple Architecture, not offically recognised)** rather than *RISC* or *CISC*
+
 ## Overview
 
 The **PVCpu Architecture** (Pheonix Virtual CPU Architecture) defines a modular instruction set with extensibility and efficient decoding as core design goals.
@@ -7,7 +9,7 @@ The **PVCpu Architecture** (Pheonix Virtual CPU Architecture) defines a modular 
 Two architectural variants exist:
 
 - **PVCpu Architecture**  
-  The standard fixed-width instruction format, using a 32-bit base instruction with optional 64-bit extensions.
+  The standard fixed-width instruction format, using a 32-bit base instruction with optional 64/32-bit extensions.
 
 - **PVCpu-C Architecture**  
   A compressed instruction format optimized for reduced code size and higher instruction density.  
@@ -32,14 +34,14 @@ The flags field is a static bitmask:
 - **Bit 0 — Valid Instruction**  
   Marks the instruction as valid and executable.
 
-- **Bit 1 — Immediate / Absolute Extension**  
-  The next 64 bits represent an immediate value or an absolute memory address.
+- **Bit 1 — Immediate / Absolute / Displacement Extension**  
+  The next 64/32 bits represent an immediate value or an absolute memory address.
 
-- **Bit 2 — Displacement Extension**  
-  The next 64 bits represent a 64-bit displacement value.
+- **Bit 2 — Extension width**  
+  If marked 1, then *Extensions* are 64-bit else they are 32-bit *Extensions*.
 
 - **Bit 3 — Extended Flags Present**  
-  The next 64 bits contain extended flags.
+  The next 64/32 bits contain extended flags.
 
 ### Extended Flags
 
@@ -54,8 +56,8 @@ Flags → Extended Flags → Extended-Extended Flags → Advanced Flags
 
 ### Register Count
 
-- **Total Registers**: 40  
-- **Program-Accessible Registers**: 34  
+- **Total Registers**: 40
+- **Program-Accessible Registers**: 34
 
 ### Program-Accessible Registers
 
@@ -66,7 +68,7 @@ Flags → Extended Flags → Extended-Extended Flags → Advanced Flags
   General-purpose registers used for computation, addressing, and data movement.
 
 - **LR (Link Register)**  
-  Holds the return address for control-transfer operations. Return addresses are also pushed onto the stack for validation.
+  Holds the return address for control-transfer operations.
 
 - **SF (Stack Frame Register)**  
   Points to the base of the current stack frame.
@@ -79,11 +81,11 @@ Flags → Extended Flags → Extended-Extended Flags → Advanced Flags
 - **PC (Program Counter)**  
   Holds the address of the current instruction.
 
-- **IP (Instruction Pointer)**  
-  Tracks decoding position within the instruction stream.
-
-- **I0 – I2**  
+- **I0 – I2 (Internal0 - Internal2)**  
   Internal registers reserved for operating system use.
+
+- **TR (Timing Register)**  
+  Tracks timings, useful for accurate delays/timers within the OS
 
 ---
 
@@ -95,6 +97,8 @@ Flags → Extended Flags → Extended-Extended Flags → Advanced Flags
 While execution semantics remain consistent with the standard PVCpu architecture, instruction fetching and decoding differ to support variable-length instructions.
 
 PVCpu-C enables instructions to shrink from a minimum of **4 bytes to as little as 2 bytes**, particularly for operations that do not require operands.
+
+**NOTE: PVCpu-C is not used for execution within any *Pheonix-CPUs***
 
 ---
 
@@ -171,6 +175,8 @@ The following components are defined in detail in **`Docs/PVCpu.md`**:
 - Flag, extended flag, extended-extended flag, and advanced flag layouts  
 - Register encodings  
 - Operand interpretation rules  
-- PVCpu-C detailed decoding rules and extension behavior  
+- PVCpu-C detailed decoding rules and extension behavior
+- Page Tables and P-XPV
+- CPU Info structures
 
 This document serves as the architectural overview and entry point for the PVCpu Instruction Set Architecture.

@@ -2,22 +2,25 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 
-#include <pvcpu-jit.h>
-
-#define PVCPU_FLAGS_BP_VALID 0b0001 // PVCpu Flags Bit Position - Valid
-#define PVCPU_FLAGS_BP_IMM 0b0010
-#define PVCPU_FLAGS_BP_DISP64 0b0100
-#define PVCPU_FLAGS_BP_EXT 0b1000
+#define PVCPU_FLAGS_BP_Valid 0b0001 // PVCpu Flags Bit Position - Valid
+#define PVCPU_FLAGS_BP_ImmDispAbs 0b0010
+#define PVCPU_FLAGS_BP_ExtSize 0b0100
+#define PVCPU_FLAGS_BP_ExtFlags 0b1000
 
 typedef struct {
-    uint16_t opcode; // Actually 12bits, use lower
-    uint8_t mode; // Actually 4bits, use lower
-    uint8_t src; // Actually 6bits, use lower
-    uint8_t dest; // Actually 6bits, use lower
-    uint8_t flags; // Actually 4bits, use lower
-} PVCpu_Inst;
+    uint16_t opcode:12; // Actually 12bits, use lower
+    uint8_t mode:4; // Actually 4bits, use lower
+    uint8_t src:6; // Actually 6bits, use lower
+    uint8_t dest:6; // Actually 6bits, use lower
+    uint8_t flags:4; // Actually 4bits, use lower
+
+    uint64_t imm;
+    uint64_t ext_flags;
+    uint8_t ext_size;
+} __attribute__((packed)) PVCpu_Inst;
 
 typedef enum {
     // ALU
@@ -66,10 +69,23 @@ typedef enum {
 } Modes;
 
 typedef struct {
-    uint64_t regs[40]; // NULL, G0-G30, LR, SF, SP, PC (Internal), I0-I3 (Internal), IP (Internal)
+    uint64_t regs[40]; // NULL, G0-G30, LR, SF, SP, PC (Internal), I0-I3 (Internal), TR (Internal)
     uint8_t* memory;
     size_t memsize;
 } PVCpu_State;
+
+typedef struct {
+    uint8_t* program;
+    size_t program_size;
+
+    void* exec_mem;
+    size_t exec_size;
+
+    void* data_mem;
+    size_t data_size;
+
+    size_t memlimit;
+} RuntimeContext;
 
 typedef struct {
     uint16_t opcode; // Actually 12bits, use lower
@@ -77,7 +93,7 @@ typedef struct {
 } PVCpuC_Inst; // PVCpu-Compressed
 
 inline static uint32_t pvpcu_pack_inst(PVCpu_Inst inst) {
-    uint32_t packed_inst;
+    uint32_t packed_inst = 0;
     packed_inst |= (inst.opcode & 0xFFF) << 20;
     packed_inst |= (inst.mode & 0xF) << 16;
     packed_inst |= (inst.src & 0x3F) << 10;
@@ -86,7 +102,7 @@ inline static uint32_t pvpcu_pack_inst(PVCpu_Inst inst) {
     return packed_inst;
 }
 
-inline static size_t pvcpu_unpack_inst(const uint8_t* buf, size_t len, PVCpu_Inst* out, uint64_t* val_out, uint64_t* extflags_out, int* extflag_count) {
+inline static size_t pvcpu_unpack_inst(const void* buf, size_t len, PVCpu_Inst* out) {
     if (len < 4) return 0;
 
     uint32_t w;
@@ -99,37 +115,33 @@ inline static size_t pvcpu_unpack_inst(const uint8_t* buf, size_t len, PVCpu_Ins
 
     size_t off = 4;
 
-    if (!(out->flags & PVCPU_FLAGS_BP_VALID)) return 4;
-    if (out->flags & PVCPU_FLAGS_BP_IMM) {
-        if (off + 8 > len) return 0;
-        memcpy(val_out, buf + off, 8);
-        off += 8;
-    } else if (out->flags & PVCPU_FLAGS_BP_DISP64) {
-        if (off + 8 > len) return 0;
-        memcpy(val_out, buf + off, 8);
-        off += 8;
-    }
-    if (out->flags & PVCPU_FLAGS_BP_EXT) {
-        while (off < len) {
-            if (off + 8 > len) return 0;
-            uint64_t mask;
-            memcpy(&mask, buf + off, 8);
+    if (!(out->flags & PVCPU_FLAGS_BP_Valid)) return 4;
+    if (out->flags & PVCPU_FLAGS_BP_ImmDispAbs) {
+        uint8_t size = 4;
+        if (out->flags & PVCPU_FLAGS_BP_ExtSize) size = 8;
+        if (off + size > len) return 0;
+        out->ext_size = size * 8;
+        memcpy(&out->imm, buf + off, size);
+        off += size;
+    } else if (out->flags & PVCPU_FLAGS_BP_ExtFlags) {
+        uint8_t size = 4;
+        if (out->flags & PVCPU_FLAGS_BP_ExtSize) size = 8;
+        if (off + size > len) return 0;
+        out->ext_size = size * 8;
+        
+        memcpy(&out->ext_flags, buf + off, size);
 
-            extflags_out[*extflag_count] = mask;
-            (*extflag_count)++;
-
-            if (!(mask & PVCPU_FLAGS_BP_VALID)) break;
-        }
+        if (!(out->ext_flags & PVCPU_FLAGS_BP_Valid)) return 0;
     }
 
     return off;
 }
 
 inline static uint16_t pvpcu_c_pack_inst(PVCpuC_Inst inst) {
-    uint16_t packed_inst;
+    uint16_t packed_inst = 0;
     packed_inst |= (inst.opcode & 0xFFF) << 4;
     packed_inst |= (inst.extender & 0xF);
     return packed_inst;
 }
 
-void pvcpu_run(PVCpu_Inst* insts, uint64_t* values, uint64_t** extflags, int* extflag_count, size_t inst_num, size_t inst_cap, size_t memsize, size_t instsize, uint8_t run_code);
+int pvcpu_run(uint8_t* run_code, size_t run_code_size, size_t memlimit);
