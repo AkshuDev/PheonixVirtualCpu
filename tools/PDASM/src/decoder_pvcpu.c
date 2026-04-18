@@ -11,7 +11,7 @@
 
 #define FLAGS_VALID 0b0001
 #define FLAGS_IMM 0b0010
-#define FLAGS_DISP64 0b0100
+#define FLAGS_64 0b0100
 #define FLAGS_EXTFLAGS 0b1000
 
 typedef struct {
@@ -137,23 +137,37 @@ void decode_pvcpu(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_
     if (!(flags & FLAGS_VALID)) {
         strcpy(out, CB_RED "(invalid) ");
     } else {
+        uint8_t incsize = 8 ? flags & FLAGS_64 : 4;
         if (flags & FLAGS_IMM) {
             uint64_t imm;
-            memcpy(&imm, &data[*offset], sizeof(imm));
-            inst.imm = imm;
-            *offset += 8;
-        }
-        if (flags & FLAGS_DISP64) {
-            uint64_t disp64;
-            memcpy(&disp64, &data[*offset], sizeof(disp64));
-            inst.disp64 = disp64;
-            *offset += 8;
+            memcpy(&imm, &data[*offset], incsize);
+            switch (inst.opcode) {
+                case 0x100:
+                case 0x101:
+                case 0x10A:
+                case 0x10B:
+                case 0x10C:
+                case 0x12C:
+                case 0x12D:
+                case 0x12E:
+                case 0x130:
+                case 0x131:
+                case 0x132:
+                case 0x133:
+                case 0x134:
+                case 0x135:
+                case 0x136:
+                case 0x137:
+                    inst.disp64 = imm;
+                default: inst.imm = imm;
+            }
+            *offset += incsize;
         }
         if (flags & FLAGS_EXTFLAGS) {
             uint64_t extflags;
-            memcpy(&extflags, &data[*offset], sizeof(extflags));
+            memcpy(&extflags, &data[*offset], incsize);
             inst.extflags = extflags;
-            *offset += 8;
+            *offset += incsize;
         }
     }
 
