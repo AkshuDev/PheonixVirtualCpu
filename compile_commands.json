@@ -113,5 +113,89 @@
     ],
     "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/PVCpu",
     "output": "build/reader_shared_linux_x86_64.o"
+  },
+  {
+    "file": "src/decoder_pvcpu.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../../shared_inc",
+      "-c",
+      "src/decoder_pvcpu.c",
+      "-o",
+      "build/decoder_pvcpu_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/tools/PDASM",
+    "output": "build/decoder_pvcpu_linux_x86_64.o"
+  },
+  {
+    "file": "src/decoder_x86.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../../shared_inc",
+      "-c",
+      "src/decoder_x86.c",
+      "-o",
+      "build/decoder_x86_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/tools/PDASM",
+    "output": "build/decoder_x86_linux_x86_64.o"
+  },
+  {
+    "file": "src/main.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../../shared_inc",
+      "-c",
+      "src/main.c",
+      "-o",
+      "build/main_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/tools/PDASM",
+    "output": "build/main_linux_x86_64.o"
+  },
+  {
+    "file": "../../shared_src/reader.c",
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Wall",
+      "-Wextra",
+      "-std=c17",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-I",
+      "inc",
+      "-I",
+      "../../shared_inc",
+      "-c",
+      "../../shared_src/reader.c",
+      "-o",
+      "build/reader_shared_linux_x86_64.o"
+    ],
+    "directory": "/home/AkshuDev/Projects/PheonixVirtualCpu/tools/PDASM",
+    "output": "build/reader_shared_linux_x86_64.o"
   }
 ]

@@ -191,7 +191,8 @@ static void decode(char* src, size_t size, Architecture arch, size_t svaddr, siz
         case Arch_x86:
         case Arch_x64:
             while (off < (code_size + soff)) {
-                decode_x86((uint8_t*)src, &off, vaddr, out, sizeof(out));
+                decode_x86((uint8_t*)src, code_size, &off, vaddr, out, sizeof(out));
+                if (off > (code_size + soff)) break;
                 printf(C_CYAN "0x%08lx: %s\n" CS_RESET, vaddr, out);
 
                 vaddr += (off - last_off);
@@ -201,7 +202,8 @@ static void decode(char* src, size_t size, Architecture arch, size_t svaddr, siz
             break;
         case Arch_PVCpu:
             while (off < (code_size + soff)) {
-                decode_pvcpu((uint8_t*)src, &off, vaddr, out, sizeof(out));
+                decode_pvcpu((uint8_t*)src, code_size, &off, vaddr, out, sizeof(out));
+                if (off > (code_size + soff)) break;
                 printf(C_CYAN "0x%08lx: %s\n" CS_RESET, vaddr, out);
 
                 vaddr += (off - last_off);

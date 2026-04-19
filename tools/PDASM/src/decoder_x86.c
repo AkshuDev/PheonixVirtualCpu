@@ -300,7 +300,7 @@ static bool opcode_register_extension(uint8_t opcode, bool rex_present, bool b16
     return true;
 }
 
-void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t outsz) {
+void decode_x86(uint8_t* data, size_t max_size, size_t* offset, size_t cvaddr, char* out, size_t outsz) {
     size_t og_offset = *offset;
     x64_inst inst = {0};
 
@@ -308,6 +308,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
 
     bool prefix_done = false;
     while (!prefix_done) {
+        if (*offset + 1 > max_size) { *offset += 2; return; }
         uint8_t b = data[*offset];
         if (b >= 0x40 && b <= 0x4F) {
             inst.rex_present = true;
@@ -324,14 +325,16 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
         }
     }
 
-    uint8_t opcode;
+    uint8_t opcode = '\0';
 
     if ((uint8_t)(data[*offset]) != 0x0F) {
+        if (*offset + 1 > max_size) { *offset += 2; return; }
         inst.opcode = (uint8_t)(data[*offset]);
         opcode = inst.opcode;
         sprintf(out, CB_RED "%s", get_value_hashmap8(opcodes8, inst.opcode, opcodes8_count));
         *offset += 1;
     } else {
+        if (*offset + 2 > max_size) { *offset += 3; return; }
         uint16_t opcode;
         memcpy(&opcode, data + *offset, sizeof(opcode));
         opcode = (uint8_t)(data[*offset + 1]);
@@ -342,6 +345,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
     
     bool has_modrm = opcode_needs_modrm(inst.opcode, inst.opcode16, opcode); 
     if (has_modrm) {
+        if (*offset + 1 > max_size) { *offset += 2; return; }
         inst.modrm = data[*offset];
         (*offset)++;
 
@@ -350,6 +354,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
         uint8_t reg = (inst.modrm & 0b00111000) >> 3;
 
         if (rm == 4 && mod != 3) { // SIB present
+            if (*offset + 1 > max_size) { *offset += 2; return; }
             inst.sib = data[*offset];
             uint8_t scale = (inst.sib & 0b11000000) >> 6;
             uint8_t index = (inst.sib & 0b00111000) >> 3;
@@ -366,16 +371,19 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
             (*offset)++;
 
             if (mod == 0 && base == 5) { // disp32
+                if (*offset + 4 > max_size) { *offset += 5; return; }
                 int32_t disp32;
                 memcpy(&disp32, data + *offset, sizeof(disp32));
                 disp_val = disp32;
                 *offset += 4;
             } else if (mod == 1) { // disp8
+                if (*offset + 1 > max_size) { *offset += 2; return; }
                 int8_t disp8;
                 memcpy(&disp8, data + *offset, sizeof(disp8));
                 disp_val = disp8;
                 *offset += 1;
             } else if (mod == 2) { // disp32
+                if (*offset + 4 > max_size) { *offset += 5; return; }
                 int32_t disp32;
                 memcpy(&disp32, data + *offset, sizeof(disp32));
                 disp_val = disp32;
@@ -389,6 +397,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
                 snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, [" CB_WHITE "%s + %s*%d + 0x%lx]" C_WHITE, decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), base_str, index_str, 1 << scale, disp_val);
         }
         else if (mod == 0 && rm != 5) {
+            if (*offset + 4 > max_size) { *offset += 5; return; }
             // Direct memory
             uint32_t imm32;
             memcpy(&imm32, data + *offset, sizeof(imm32));
@@ -399,6 +408,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
             snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx] ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.imm);
         }
         else if (mod == 0 && rm == 5) {
+            if (*offset + 4 > max_size) { *offset += 5; return; }
             // RIP Disp32
             int32_t disp32;
             memcpy(&disp32, data + *offset, sizeof(disp32));
@@ -409,6 +419,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
             snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // RIP disp32, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
         }
         else if (mod == 1) {
+            if (*offset + 1 > max_size) { *offset += 2; return; }
             // Disp8
             int8_t disp32;
             memcpy(&disp32, data + *offset, sizeof(disp32));
@@ -419,6 +430,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
             snprintf(out + out_off, outsz - out_off, CB_CYAN " %s, " CB_WHITE "[0x%lx]" C_WHITE " // disp8, 0x%lx ", decode_register(inst.rex_present, inst.b16_prefix, inst.rex_w, inst.rex_b, reg), inst.disp, (size_t)((size_t)inst.disp + cvaddr));
         }
         else if (mod == 2) {
+            if (*offset + 4 > max_size) { *offset += 5; return; }
             // Disp32
             int32_t disp32;
             memcpy(&disp32, data + *offset, sizeof(disp32));
@@ -440,18 +452,22 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
     if (opcode_needs_imm(inst.opcode, inst.rex_w, inst.b16_prefix, &immsize, inst.opcode16, opcode)) {
         if (immsize == 4) {
             int32_t imm32;
+            if (*offset + sizeof(imm32) > max_size) { *offset += sizeof(imm32) + 1; return; }
             memcpy(&imm32, data + *offset, sizeof(imm32));
             inst.imm = imm32;
         } else if (immsize == 2) {
             int16_t imm16;
+            if (*offset + sizeof(imm16) > max_size) { *offset += sizeof(imm16) + 1; return; }
             memcpy(&imm16, data + *offset, sizeof(imm16));
             inst.imm = imm16;
         } else if (immsize == 1) {
             int8_t imm8;
+            if (*offset + sizeof(imm8) > max_size) { *offset += sizeof(imm8) + 1; return; }
             memcpy(&imm8, data + *offset, sizeof(imm8));
             inst.imm = imm8;
         } else if (immsize == 8) {
             int64_t imm64;
+            if (*offset + sizeof(imm64) > max_size) { *offset += sizeof(imm64) + 1; return; }
             memcpy(&imm64, data + *offset, sizeof(imm64));
             inst.imm = imm64;
         }
@@ -459,7 +475,7 @@ void decode_x86(uint8_t* data, size_t* offset, size_t cvaddr, char* out, size_t 
         *offset += immsize;
 
         size_t out_off = strlen(out);
-        snprintf(out + out_off, outsz - out_off, CB_CYAN " %lu ", inst.imm);
+        snprintf(out + out_off, outsz - out_off, CB_CYAN " 0x%lx ", inst.imm);
     }
 
     if (out[0] == '\0') {
