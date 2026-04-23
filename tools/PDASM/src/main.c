@@ -15,6 +15,8 @@
 #define SArchsEX_Print "x86, x64/x86_64, pvcpu (Pheonix Virtual Cpu), pvcpuc/pvcpu_c (Pheonix Virtual Cpu - Compressed)"
 #define PDASM_USAGE "Usage: pdasm <command> <OPTIONAL:input> <OPTIONAL:[OPTIONS]>\nExample: disassemble myfile\n"
 
+#define PDASM_VERSION "1.0.0"
+
 static uint8_t* read_file(const char* filename, size_t* out_size) {
     FILE* f = fopen(filename, "rb");
     if (!f) {
@@ -60,11 +62,13 @@ static void print_help() {
     printf("\t--binary              -  The file is a binary, when using this, please also specify architecture\n");
     printf("\t--arch <architecture> - Incase the file is a binary, use this to specify the architecture. Available architectures:\n\t\t" SArchsEX_Print "\n");
 
-    printf("\nhelp             - Display this message\n");
+    printf("\nversion        - Display the current version of the software\n");
+    printf("help             - Display this message\n");
 }
 
 typedef struct {
     bool help;
+    bool version;
     bool info;
     bool disassemble;
 
@@ -113,6 +117,9 @@ static void parse_args(Args_t* args, int argc, char** argv) {
     char* cmd = argv[1];
     if (strcmp(cmd, "help") == 0) {
         args->help = true;
+        return;
+    } else if (strcmp(cmd, "version") == 0) {
+        args->version = true;
         return;
     } else if (strcmp(cmd, "info") == 0) {
         args->info = true;
@@ -279,6 +286,8 @@ int main(int argc, char** argv) {
         free(src);
     } else if (args.help) {
         print_help();
+    } else if (args.version) {
+        printf("PDASM Version " PDASM_VERSION "\n");
     }
 
     return 0;

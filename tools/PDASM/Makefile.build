@@ -1,0 +1,99 @@
+# Author: Pheonix Studios / AkshuDev
+# Pheonix-Disassembler cross-platform build system
+
+# CONFIG
+BUILD ?= debug
+OS := $(shell uname | tr '[:upper:]' '[:lower:]')
+ARCH := $(shell uname -m)
+
+CC := gcc
+WCC = x86_64-w64-mingw32-gcc
+
+CFLAGS_RELEASE := -Wall -Wextra -std=c17 -I inc -I ../../shared_inc
+CFLAGS_DEBUG := -Wall -Wextra -std=c17 -g -fsanitize=address,undefined -I inc -I ../../shared_inc
+
+WFLAGS_RELEASE := -Wall -Wextra -std=c17 -I inc -I ../../shared_inc -I ../../windows_inc -fno-stack-protector -static -static-libgcc -static-libstdc++ -Wl,-Bstatic
+WFLAGS_DEBUG := -Wall -Wextra -std=c17 -g -fsanitize=address,undefined -I inc -I ../../shared_inc -I ../../windows_inc
+
+LDFLAGS := 
+
+ifeq ($(BUILD),release)
+    CFLAGS := $(CFLAGS_RELEASE)
+	WCFLAGS := $(WFLAGS_RELEASE)
+else
+    CFLAGS := $(CFLAGS_DEBUG)
+	WCFLAGS := $(WFLAGS_DEBUG)
+endif
+
+# Source files
+SRCS := $(wildcard src/*.c)
+SHARED_SRCS := $(wildcard ../../shared_src/*.c)
+SHARED_OBJS := $(patsubst ../../shared_src/%.c,build/%_shared_$(OS)_$(ARCH).o,$(SHARED_SRCS))
+OBJS := $(patsubst src/%.c,build/%_$(OS)_$(ARCH).o,$(SRCS))
+
+WSHARED_OBJS := $(patsubst ../../shared_src/%.c,build/%_shared_windows_$(ARCH).o,$(SHARED_SRCS))
+WOBJS := $(patsubst src/%.c,build/%_windows_$(ARCH).o,$(SRCS))
+
+# Output binary
+BIN := bin/$(OS)/$(ARCH)/pdasm
+WBIN := bin/windows/$(ARCH)/pdasm.exe
+
+# Separator for inspect target
+INSPECT_VAR ?= 
+
+# DEFAULT TARGET
+.PHONY: clean all help inspect build_win
+all: $(BIN)
+build_win: $(WBIN)
+
+# BUILD RULES
+build/%_$(OS)_$(ARCH).o: src/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/%_shared_$(OS)_$(ARCH).o: ../../shared_src/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/%_windows_$(ARCH).o: src/%.c
+	@mkdir -p build
+	$(WCC) $(WCFLAGS) -c $< -o $@
+
+build/%_shared_windows_$(ARCH).o: ../../shared_src/%.c
+	@mkdir -p build
+	$(WCC) $(WCFLAGS) -c $< -o $@
+
+$(BIN): $(OBJS) $(SHARED_OBJS)
+	@mkdir -p bin/$(OS)/$(ARCH)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	@echo "Built $(BIN) [$(BUILD)]"
+
+$(WBIN): $(WOBJS) $(WSHARED_OBJS)
+	@mkdir -p bin/windows/$(ARCH)
+	$(WCC) $(WCFLAGS) $^ -o $@ $(LDFLAGS)
+	@echo "Built $(WBIN) [$(BUILD)]"
+
+# SPECIAL TARGETS
+clean:
+	rm -rf build bin
+	@echo "Cleaned build and bin directories"
+
+help:
+	@echo "Pheonix-Disassembler Makefile Help"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all             Build default target (debug build)"
+	@echo "  build_win       Build for Windows using mingw-gcc"
+	@echo "  clean           Remove build/ and bin/ directories"
+	@echo "  inspect VAR=... Print the value of VAR"
+	@echo ""
+	@echo "Variables:"
+	@echo "  BUILD=debug|release    (default debug)"
+	@echo "  INSPECT_VAR=<value>    Used with inspect target"
+
+inspect:
+ifeq ($(INSPECT_VAR),)
+	@echo "Please set INSPECT_VAR=<value>"
+else
+	@echo "INSPECT_VAR=$(INSPECT_VAR)"
+endif

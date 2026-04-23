@@ -1,0 +1,42 @@
+{
+    "Name": "PDASM",
+    "Description": "Pheonix Disassembler",
+
+    "Version": "1.0.0",
+    "Author": "Pheonix-Studios",
+
+    "License": "LICENSE",
+    "Readme": "README.md",
+
+    "Id": "pheonix_studios.pdasm",
+    "Status": "stable",
+
+    "Build": {
+        "Date": "2026-04-22",
+        "AllowedSigners": "keys/allowed_signers",
+        "SignatureIdentity": "pheonix-pdasm"
+    },
+    
+    "Binaries": [
+        {
+            "Name": "pdasm",
+            "Os": ["linux"],
+            "Arch": ["x86_64"],
+            "Path": "bin/linux/x86_64/pdasm",
+            "Size": 0,
+            "Sha256": "",
+            "Executable": true
+        },
+        {
+            "Name": "pdasm.exe",
+            "Os": ["windows"],
+            "Arch": ["x86_64"],
+            "Path": "bin/windows/x86_64/pdasm.exe",
+            "Size": 0,
+            "Sha256": "",
+            "Executable": true
+        }
+    ],
+    "Dependencies": [],
+    "Conflicts": []
+}
