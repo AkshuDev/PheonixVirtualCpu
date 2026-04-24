@@ -24,7 +24,7 @@ typedef struct {
 
 typedef enum {
     // ALU
-    OP_ADD = 0,
+    OP_ADD = 1,
     OP_SUB,
     OP_MUL,
     OP_DIV,
@@ -64,8 +64,9 @@ typedef enum {
     STORE_IMMADDR, // mem[imm] = src
     STORE_PC_REL, // mem[dest (as offset) + PC] = src
     // Special
-    SYSCALL_REG, // syscall(src)
-    SYSCALL_IMM, // syscall(imm)
+    SRC_REG, // opcode (src)
+    SRC_REG_IMM, // opcode (src (as imm))
+    SRC_IMM, // opcode (imm)
 } Modes;
 
 typedef struct {

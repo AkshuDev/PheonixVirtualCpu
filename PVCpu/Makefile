@@ -24,7 +24,7 @@ ifeq ($(BUILD_WIN),1)
 endif
 
 # Source files
-SRCS := $(wildcard src/*.c)
+SRCS := $(wildcard src/*.c) $(wildcard src/x86_64/*.c)
 SHARED_SRCS := $(wildcard ../shared_src/*.c)
 SHARED_OBJS := $(patsubst ../shared_src/%.c,build/%_shared_$(OS)_$(ARCH).o,$(SHARED_SRCS))
 OBJS := $(patsubst src/%.c,build/%_$(OS)_$(ARCH).o,$(SRCS))
@@ -41,11 +41,15 @@ all: $(BIN)
 
 # BUILD RULES
 build/%_$(OS)_$(ARCH).o: src/%.c
-	@mkdir -p build
+	@mkdir -p build build/x86_64
+	$(CC) $(CFLAGS) -c $< -o $@
+
+build/%_x86_64__$(OS)_$(ARCH).o: src/x86_64/%.c
+	@mkdir -p build build/x86_64
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/%_shared_$(OS)_$(ARCH).o: ../shared_src/%.c
-	@mkdir -p build
+	@mkdir -p build build/x86_64
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BIN): $(OBJS) $(SHARED_OBJS)

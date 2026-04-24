@@ -1,9 +1,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h> // For realloc, since pheonix stdlib links fragmented memory in ralloc
+#include <stdio.h>
 
 #include <pvcpu-isa.h>
 #include <pvcpu-jit.h>
+
+#include <pvcpu-x64-jit.h>
 
 #include <pstdlib.h> // For exalloc, since stdlib doesn't support it
 
@@ -20,72 +23,6 @@ static PVCpu_State* state = &_state;
     jit->capacity = 0; \
     jit->size = 0;
 
-static inline int emit_u8(uint8_t v) {
-    if (jit->size >= jit->capacity) return -1;
-    jit->data[jit->size++] = v;
-    return 0;
-}
-
-static inline int emit_u32(uint32_t v) {
-    if (jit->size + 4 > jit->capacity) return -1;
-    *(uint32_t*)(jit->data + jit->size) = v;
-    jit->size += 4;
-    return 0;
-}
-
-static int load_pvcpu_reg(uint8_t host_reg, uint8_t pvcpu_reg) {
-#ifdef __x86_64__
-    if (pvcpu_reg < 8) {
-        // mov host_reg, [rdi + pvcpu_reg*8] ; rdi points to PVCpu_State*
-        
-        emit_u8(0x48); // REX.W
-        emit_u8(0x8B); // mov r64, r/m64
-        emit_u8(0x87 + (host_reg << 3)); // modrm
-        emit_u32(pvcpu_reg * 8); 
-    } else {
-        // spill to stack / memory
-    }
-    return 0;
-#endif
-}
-
-static int store_pvcpu_reg(uint8_t pvcpu_reg, uint8_t host_reg) {
-#ifdef __x86_64__
-    if (pvcpu_reg < 8) {
-        emit_u8(0x48); // REX.W
-        emit_u8(0x89); // mov r/m64, r64
-        emit_u8(0x87 + (host_reg << 3));
-        emit_u32(pvcpu_reg * 8);
-    } else {
-        // spill to stack / memory
-    }
-    return 0;
-#endif
-}
-
-static int jit_emit_add(PVCpu_Inst* inst) {
-#ifdef __x86_64
-    switch (inst->mode) {
-        case REG_REG: {
-            // Find register dest
-            if (inst->dest > 40) {
-                // Stack
-            } else {
-                // Use corrosponding host register
-            }
-        }
-    }
-#endif
-    return 0;
-}
-
-static int jit_translate(PVCpu_Inst* inst) {
-    switch (inst->opcode) {
-        case OP_ADD: return jit_emit_add(inst);
-        default: return -1;
-    }
-}
-
 int jit_convert_program(RuntimeContext *ctx) {
     if (ctx->memlimit > 0 && ctx->memlimit < JIT_PAGE) return -1;
 
@@ -96,6 +33,7 @@ int jit_convert_program(RuntimeContext *ctx) {
 
     size_t offset = 0;
 
+    jit_setup_x64(state, jit);
     while (offset < ctx->program_size) {
         // Unpack instruction (validates the instruction via its flags)
         PVCpu_Inst inst = {0};
@@ -107,7 +45,8 @@ int jit_convert_program(RuntimeContext *ctx) {
         offset += off;
 
         // Run jit of the inst
-        int out = jit_translate(&inst);
+        printf("Opcode: 0x%X RDST: %u RSRC: %u Mode: %u\n", inst.opcode, inst.dest, inst.src, inst.mode);
+        int out = jit_translate_x64(state, jit, &inst);
         if (out != 0) {
             CLEANUP();
             return out;
