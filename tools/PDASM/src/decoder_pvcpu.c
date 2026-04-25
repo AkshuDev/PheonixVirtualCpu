@@ -139,8 +139,8 @@ void decode_pvcpu(uint8_t* data, size_t max_size, size_t* offset, size_t cvaddr,
         strcpy(out, CB_RED "(invalid) ");
     } else {
         uint8_t incsize = flags & FLAGS_64 ? 8 : 4;
-        if (*offset + incsize > max_size) { *offset += incsize + 1; return; }
         if (flags & FLAGS_IMM) {
+            if (*offset + incsize > max_size) { *offset += incsize + 1; return; }
             uint64_t imm;
             memcpy(&imm, &data[*offset], incsize);
             switch (inst.opcode) {
@@ -166,6 +166,7 @@ void decode_pvcpu(uint8_t* data, size_t max_size, size_t* offset, size_t cvaddr,
             *offset += incsize;
         }
         if (flags & FLAGS_EXTFLAGS) {
+            if (*offset + incsize > max_size) { *offset += incsize + 1; return; }
             uint64_t extflags;
             memcpy(&extflags, &data[*offset], incsize);
             inst.extflags = extflags;

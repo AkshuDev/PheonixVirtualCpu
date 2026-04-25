@@ -8,7 +8,7 @@
   "Id": "pheonix_studios.pdasm",
   "Status": "stable",
   "Build": {
-    "Date": "2026-04-23",
+    "Date": "2026-04-24 20:44",
     "AllowedSigners": "keys/allowed_signers",
     "SignatureIdentity": "pheonix-pdasm"
   },
