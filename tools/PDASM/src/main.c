@@ -146,7 +146,7 @@ static void parse_args(Args_t* args, int argc, char** argv) {
             } else if (strcmp(opt, "--basic") == 0) {
                 args->info_basic = true;
             } else {
-                printf(CB_RED "Invalid Option for '%s' command: %s\n\t" CB_CYAN "Tip: Try 'help' command!\n" CS_RESET, cmd);
+                printf(CB_RED "Invalid Option for '%s' command: %s\n\t" CB_CYAN "Tip: Try 'help' command!\n" CS_RESET, cmd, opt);
                 args->error = true;
                 return;
             }
@@ -184,7 +184,7 @@ static void parse_args(Args_t* args, int argc, char** argv) {
 }
 
 static void decode(char* src, size_t size, Architecture arch, size_t svaddr, size_t soff, size_t code_size) {
-    if (soff > size) {
+    if (soff > size || code_size > size) {
         printf(CB_RED "File truncated, maybe?\n" CS_RESET);
         return;
     }
@@ -198,9 +198,10 @@ static void decode(char* src, size_t size, Architecture arch, size_t svaddr, siz
         case Arch_x86:
         case Arch_x64:
             while (off < (code_size + soff)) {
-                decode_x86((uint8_t*)src, code_size, &off, vaddr, out, sizeof(out));
+				size_t coff = off;
+                decode_x86((uint8_t*)src, soff + code_size, &off, vaddr, out, sizeof(out));
                 if (off > (code_size + soff)) break;
-                printf(C_CYAN "0x%08lx: %s\n" CS_RESET, vaddr, out);
+                printf(C_CYAN "(0x%08lx) 0x%08lx: %s\n" CS_RESET, coff, vaddr, out);
 
                 vaddr += (off - last_off);
                 last_off = off;
@@ -209,9 +210,10 @@ static void decode(char* src, size_t size, Architecture arch, size_t svaddr, siz
             break;
         case Arch_PVCpu:
             while (off < (code_size + soff)) {
-                decode_pvcpu((uint8_t*)src, code_size, &off, vaddr, out, sizeof(out));
+				size_t coff = off;
+                decode_pvcpu((uint8_t*)src, soff + code_size, &off, vaddr, out, sizeof(out));
                 if (off > (code_size + soff)) break;
-                printf(C_CYAN "0x%08lx: %s\n" CS_RESET, vaddr, out);
+                printf(C_CYAN "(0x%08lx) 0x%08lx: %s\n" CS_RESET, coff, vaddr, out);
 
                 vaddr += (off - last_off);
                 last_off = off;
